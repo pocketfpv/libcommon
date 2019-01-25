@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,11 @@ package com.serenegiant.utils;
 */
 
 import android.app.Activity;
+import androidx.annotation.NonNull;
 import android.view.WindowManager;
 
 public class BrightnessHelper {
-	public static void setBrightness(final Activity activity, final float brightness) {
+	public static void setBrightness(@NonNull final Activity activity, final float brightness) {
 		final WindowManager.LayoutParams lp = activity.getWindow().getAttributes();
 		float _brightness = brightness;
 		if (brightness > 1.0f) {
@@ -32,7 +33,7 @@ public class BrightnessHelper {
 		activity.getWindow().setAttributes(lp);
 	}
 
-	public float getBrightness(final Activity activity) {
+	public float getBrightness(@NonNull final Activity activity) {
 		final WindowManager.LayoutParams lp = activity.getWindow().getAttributes();
 		return lp.screenBrightness;
 	}

@@ -3,7 +3,7 @@ package com.serenegiant.widget;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,13 @@ package com.serenegiant.widget;
  *  limitations under the License.
 */
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.Nullable;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
+import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
@@ -46,8 +47,9 @@ public class RecycleViewWithEmptyView extends RecyclerView {
 		this(context, attrs, 0);
 	}
 
+	@SuppressLint("WrongConstant")
 	public RecycleViewWithEmptyView(final Context context,
-									@Nullable final AttributeSet attrs, final int defStyle) {
+		@Nullable final AttributeSet attrs, final int defStyle) {
 
 		super(context, attrs, defStyle);
 		Drawable divider = null;
@@ -60,6 +62,7 @@ public class RecycleViewWithEmptyView extends RecyclerView {
 					divider = attribs.getDrawable(R.styleable.RecycleViewWithEmptyView_listDivider);
 				}
 			} catch (final Exception e) {
+				if (DEBUG) Log.w(TAG, e);
 			}
 			attribs.recycle();
 		}

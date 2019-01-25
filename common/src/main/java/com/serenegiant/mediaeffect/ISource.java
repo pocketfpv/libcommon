@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package com.serenegiant.mediaeffect;
  *  limitations under the License.
 */
 
+import androidx.annotation.NonNull;
+
 import com.serenegiant.glutils.TextureOffscreen;
 
 public interface ISource {
@@ -31,6 +33,7 @@ public interface ISource {
 	public ISource apply(IEffect effect);
 	public int getWidth();
 	public int getHeight();
+	@NonNull
 	public int[] getSourceTexId();
 	public int getOutputTexId();
 	public float[] getTexMatrix();

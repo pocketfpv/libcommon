@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,16 @@ package com.serenegiant.mediaeffect;
 */
 
 import android.opengl.GLES20;
+import androidx.annotation.NonNull;
 
 import com.serenegiant.glutils.GLHelper;
 
 import static com.serenegiant.glutils.ShaderConst.*;
 
+/**
+ * カーネル行列を用いた映像フィルタ処理
+ * MediaEffectSingleDrawerを継承しているので、使用できるテクスチャは1つだけ
+ */
 public class MediaEffectKernel3x3Drawer extends MediaEffectColorAdjustDrawer {
 
 	public static final int KERNEL_SIZE = 9;
@@ -101,8 +106,10 @@ public class MediaEffectKernel3x3Drawer extends MediaEffectColorAdjustDrawer {
 	}
 
 	@Override
-	protected void preDraw(final int tex_id, final float[] tex_matrix, final int offset) {
-		super.preDraw(tex_id, tex_matrix, offset);
+	protected void preDraw(@NonNull final int[] tex_ids,
+		final float[] tex_matrix, final int offset) {
+
+		super.preDraw(tex_ids, tex_matrix, offset);
 		// カーネル関数(行列)
 		if (muKernelLoc >= 0) {
 			GLES20.glUniform1fv(muKernelLoc, KERNEL_SIZE, mKernel, 0);
@@ -116,7 +123,8 @@ public class MediaEffectKernel3x3Drawer extends MediaEffectColorAdjustDrawer {
 
 	public void setKernel(final float[] values, final float colorAdj) {
 		if ((values == null) || (values.length < KERNEL_SIZE)) {
-			throw new IllegalArgumentException("Kernel size is " + (values != null ? values.length : 0) + " vs. " + KERNEL_SIZE);
+			throw new IllegalArgumentException("Kernel size is "
+				+ (values != null ? values.length : 0) + " vs. " + KERNEL_SIZE);
 		}
 		synchronized (mSync) {
 			System.arraycopy(values, 0, mKernel, 0, KERNEL_SIZE);

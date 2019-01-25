@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.serenegiant.mediaeffect;
  *  limitations under the License.
 */
 
+import androidx.annotation.NonNull;
 import android.util.Log;
 
 import com.serenegiant.glutils.GLDrawer2D;
@@ -88,7 +89,9 @@ public class MediaSource implements ISource {
 				mSrcTexIds[0] = mSourceScreen.getTexture();
 			}
 			needSwap = !needSwap;
-//			effect.apply(mSrcTexIds, mOutputScreen.getTexWidth(), mOutputScreen.getTexHeight(), mOutputScreen.getTexture());
+//			effect.apply(mSrcTexIds,
+// 				mOutputScreen.getTexWidth(), mOutputScreen.getTexHeight(),
+// 				mOutputScreen.getTexture());
 			effect.apply(this); // このメソッド呼び出しは1つ上のコメントアウトしてある行と結果は等価だけど効率はいい。
 		}
 		return this;
@@ -104,6 +107,7 @@ public class MediaSource implements ISource {
 		return mHeight;
 	}
 
+	@NonNull
 	@Override
 	public int[] getSourceTexId() {
 		return mSrcTexIds;
@@ -155,7 +159,9 @@ public class MediaSource implements ISource {
 	 * @param tex_matrix
 	 * @return
 	 */
-	public MediaSource setSource(final GLDrawer2D drawer, final int tex_id, final float[] tex_matrix) {
+	public MediaSource setSource(final GLDrawer2D drawer,
+		final int tex_id, final float[] tex_matrix) {
+
 		mSourceScreen.bind();
 		try {
 			drawer.draw(tex_id, tex_matrix, 0);

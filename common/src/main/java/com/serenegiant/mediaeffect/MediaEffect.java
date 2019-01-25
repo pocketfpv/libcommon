@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,10 @@ package com.serenegiant.mediaeffect;
 import android.media.effect.Effect;
 import android.media.effect.EffectContext;
 import android.media.effect.EffectFactory;
+import androidx.annotation.NonNull;
 import android.text.TextUtils;
+
+import com.serenegiant.glutils.TextureOffscreen;
 
 public class MediaEffect implements IEffect {
 	protected final EffectContext mEffectContext;
@@ -43,16 +46,31 @@ public class MediaEffect implements IEffect {
 	}
 
 	@Override
-	public void apply(final int [] src_tex_ids, final int width, final int height, final int out_tex_id) {
+	public void apply(@NonNull final int [] src_tex_ids,
+		final int width, final int height, final int out_tex_id) {
+
 		if (mEnabled && (mEffect != null)) {
 			mEffect.apply(src_tex_ids[0], width, height, out_tex_id);
 		}
 	}
 
 	@Override
+	public void apply(@NonNull final int [] src_tex_ids,
+		@NonNull final TextureOffscreen output) {
+
+		if (mEnabled && (mEffect != null)) {
+			mEffect.apply(src_tex_ids[0],
+				output.getWidth(), output.getHeight(),
+				output.getTexture());
+		}
+	}
+
+	@Override
 	public void apply(final ISource src) {
 		if (mEnabled && (mEffect != null)) {
-			mEffect.apply(src.getSourceTexId()[0], src.getWidth(), src.getHeight(), src.getOutputTexId());
+			mEffect.apply(src.getSourceTexId()[0],
+				src.getWidth(), src.getHeight(),
+				src.getOutputTexId());
 		}
 	}
 

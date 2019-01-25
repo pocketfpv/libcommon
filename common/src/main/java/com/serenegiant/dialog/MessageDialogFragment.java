@@ -3,7 +3,7 @@ package com.serenegiant.dialog;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@ import com.serenegiant.utils.BuildCheck;
 /**
  * パーミッション要求前に説明用のダイアログを表示するためのDialogFragment
  */
+@SuppressWarnings("deprecation")
+@Deprecated
 public class MessageDialogFragment extends DialogFragment {
 //	private static final boolean DEBUG = false;	// FIXME 実働時はfalseにすること
 	private static final String TAG = MessageDialogFragment.class.getSimpleName();

@@ -3,7 +3,7 @@ package com.serenegiant.graphics;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import android.graphics.Rect;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
+import androidx.annotation.NonNull;
 import android.text.TextUtils;
 
 import com.serenegiant.utils.BitsHelper;
@@ -48,7 +49,7 @@ public final class BitmapHelper {
 	 * @param bitmap
 	 * @return
 	 */
-	public static byte[] BitmapToByteArray(final Bitmap bitmap) {
+	public static byte[] BitmapToByteArray(@NonNull final Bitmap bitmap) {
 		final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 		byte[] bytes = null;
         if (bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)) {
@@ -419,11 +420,13 @@ public final class BitmapHelper {
 
 	/**
 	 * ファイルからビットマップを読み込んで指定した幅・高さに最も近い大きさのBitmapとして返す
+	 // FIXME これはうまくいかない, リサイズするにはinから2回読み込まないといけない
 	 * @param in
 	 * @param requestWidth
 	 * @param requestHeight
 	 * @return
 	 */
+	@Deprecated
 	public static Bitmap asBitmap(final InputStream in, final int requestWidth, final int requestHeight) {
 		Bitmap bitmap = null;
 		if (in != null) {
@@ -440,11 +443,13 @@ public final class BitmapHelper {
 
 	/**
 	 * ファイルからビットマップデータを読み込んで指定した幅・高さのBitmapとして返す
+	 // FIXME これはうまくいかない, リサイズするにはinから2回読み込まないといけない
 	 * @param in
 	 * @param requestWidth
 	 * @param requestHeight
 	 * @return
 	 */
+	@Deprecated
 	public static Bitmap asBitmapStrictSize(final InputStream in, final int requestWidth, final int requestHeight) {
 		Bitmap bitmap = null;
 		if (in != null) {

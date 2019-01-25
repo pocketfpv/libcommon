@@ -1,7 +1,7 @@
 package com.serenegiant.utils;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -16,7 +16,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -133,6 +133,7 @@ public class ReentrantReadWriteList<V> implements List<V> {
 	 * can not modify underlying list using returned iterator
 	 * @return
 	 */
+	@NonNull
 	@Override
 	public ListIterator<V> listIterator() {
 		mReadLock.lock();

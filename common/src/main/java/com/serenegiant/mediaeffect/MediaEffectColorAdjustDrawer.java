@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,16 @@ package com.serenegiant.mediaeffect;
 */
 
 import android.opengl.GLES20;
+import androidx.annotation.NonNull;
 
 import static com.serenegiant.glutils.ShaderConst.*;
 
-public class MediaEffectColorAdjustDrawer extends MediaEffectDrawer {
+/**
+ * MediaEffectSingleDrawerを継承しているので、使用できるテクスチャは1つだけ
+ */
+public class MediaEffectColorAdjustDrawer
+	extends MediaEffectDrawer.MediaEffectSingleDrawer {
+
 	private int muColorAdjustLoc;		// 色調整
 	private float mColorAdjust;
 
@@ -30,11 +36,15 @@ public class MediaEffectColorAdjustDrawer extends MediaEffectDrawer {
 		this(false, VERTEX_SHADER, fss);
 	}
 
-	public MediaEffectColorAdjustDrawer(final boolean isOES, final String fss) {
+	public MediaEffectColorAdjustDrawer(final boolean isOES,
+		final String fss) {
+
 		this(isOES, VERTEX_SHADER, fss);
 	}
 
-	public MediaEffectColorAdjustDrawer(final boolean isOES, final String vss, final String fss) {
+	public MediaEffectColorAdjustDrawer(final boolean isOES,
+		final String vss, final String fss) {
+
 		super(isOES, vss, fss);
 		muColorAdjustLoc = GLES20.glGetUniformLocation(getProgram(), "uColorAdjust");
 		if (muColorAdjustLoc < 0) {
@@ -49,11 +59,15 @@ public class MediaEffectColorAdjustDrawer extends MediaEffectDrawer {
 	}
 
 	@Override
-	protected void preDraw(final int tex_id, final float[] tex_matrix, final int offset) {
-		super.preDraw(tex_id, tex_matrix, offset);
+	protected void preDraw(@NonNull final int[] tex_ids,
+		final float[] tex_matrix, final int offset) {
+
+		super.preDraw(tex_ids, tex_matrix, offset);
 		// 色調整オフセット
 		if (muColorAdjustLoc >= 0) {
-			GLES20.glUniform1f(muColorAdjustLoc, mColorAdjust);
+			synchronized (mSync) {
+				GLES20.glUniform1f(muColorAdjustLoc, mColorAdjust);
+			}
 		}
 	}
 }

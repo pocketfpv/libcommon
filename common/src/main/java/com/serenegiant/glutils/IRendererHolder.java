@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,31 @@ package com.serenegiant.glutils;
 */
 
 import android.graphics.SurfaceTexture;
-import android.support.annotation.NonNull;
+import androidx.annotation.IntDef;
+import androidx.annotation.IntRange;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import android.view.Surface;
+
+import java.io.FileNotFoundException;
+import java.io.OutputStream;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 /**
  * 分配描画インターフェース
  */
 public interface IRendererHolder extends IRendererCommon {
+	public static final int DEFAULT_CAPTURE_COMPRESSION = 80;
+
+	public static final int OUTPUT_FORMAT_JPEG = 0;	// Bitmap.CompressFormat.JPEG
+	public static final int OUTPUT_FORMAT_PNG = 1;	// Bitmap.CompressFormat.PNG
+	public static final int OUTPUT_FORMAT_WEBP = 2;	// Bitmap.CompressFormat.WEBP
+
+	@IntDef({OUTPUT_FORMAT_JPEG, OUTPUT_FORMAT_PNG, OUTPUT_FORMAT_WEBP})
+	@Retention(RetentionPolicy.SOURCE)
+	public @interface StillCaptureFormat {}
+
 	/**
 	 * 実行中かどうか
 	 * @return
@@ -35,6 +53,9 @@ public interface IRendererHolder extends IRendererCommon {
 	 * 関係するすべてのリソースを開放する。再利用できない
 	 */
 	public void release();
+
+	@Nullable
+	public EGLBase.IContext getContext();
 
 	/**
 	 * マスター用の映像を受け取るためのSurfaceを取得
@@ -58,30 +79,48 @@ public interface IRendererHolder extends IRendererCommon {
 	 * @param width
 	 * @param height
 	 */
-	public void resize(final int width, final int height);
+	public void resize(final int width, final int height)
+		throws IllegalStateException;
 
 	/**
 	 * 分配描画用のSurfaceを追加
+	 * このメソッドは指定したSurfaceが追加されるか
+	 * interruptされるまでカレントスレッドをブロックする。
 	 * @param id 普通は#hashCodeを使う
 	 * @param surface, should be one of Surface, SurfaceTexture or SurfaceHolder
 	 * @param isRecordable
 	 */
-	public void addSurface(final int id, final Object surface, final boolean isRecordable);
+	public void addSurface(final int id, final Object surface,
+		final boolean isRecordable)
+			throws IllegalStateException, IllegalArgumentException;
 
 	/**
 	 * 分配描画用のSurfaceを追加
+	 * このメソッドは指定したSurfaceが追加されるか
+	 * interruptされるまでカレントスレッドをブロックする。
 	 * @param id 普通は#hashCodeを使う
 	 * @param surface, should be one of Surface, SurfaceTexture or SurfaceHolder
 	 * @param isRecordable
 	 * @param maxFps 0以下なら制限しない
 	 */
-	public void addSurface(final int id, final Object surface, final boolean isRecordable, final int maxFps);
+	public void addSurface(final int id, final Object surface,
+		final boolean isRecordable, final int maxFps)
+			throws IllegalStateException, IllegalArgumentException;
 
 	/**
 	 * 分配描画用のSurfaceを削除
+	 * このメソッドは指定したSurfaceが削除されるか
+	 * interruptされるまでカレントスレッドをブロックする。
 	 * @param id
 	 */
 	public void removeSurface(final int id);
+	
+	/**
+	 * 分配描画用のSurfaceを全て削除
+	 * このメソッドはSurfaceが削除されるか
+	 * interruptされるまでカレントスレッドをブロックする。
+	 */
+	public void removeSurfaceAll();
 	
 	/**
 	 * 分配描画用のSurfaceを指定した色で塗りつぶす
@@ -102,7 +141,8 @@ public interface IRendererHolder extends IRendererCommon {
 	 * @param offset
 	 * @param matrix offset以降に16要素以上
 	 */
-	public void setMvpMatrix(final int id, final int offset, @NonNull final float[] matrix);
+	public void setMvpMatrix(final int id,
+		final int offset, @NonNull final float[] matrix);
 
 	/**
 	 * 分配描画用のSurfaceへの描画が有効かどうかを取得
@@ -135,7 +175,9 @@ public interface IRendererHolder extends IRendererCommon {
 	 * 撮影完了を待機しない
 	 * @param path
 	 */
-	public void captureStillAsync(final String path);
+	@Deprecated
+	public void captureStillAsync(@NonNull final String path)
+		throws FileNotFoundException, IllegalStateException;
 	
 	/**
 	 * 静止画を撮影する
@@ -143,14 +185,18 @@ public interface IRendererHolder extends IRendererCommon {
 	 * @param path
 	 * @param captureCompression JPEGの圧縮率, pngの時は無視
 	 */
-	public void captureStillAsync(final String path, final int captureCompression);
+	@Deprecated
+	public void captureStillAsync(@NonNull final String path,
+		@IntRange(from = 1L,to = 99L) final int captureCompression)
+			throws FileNotFoundException, IllegalStateException;
 
 	/**
 	 * 静止画を撮影する
 	 * 撮影完了を待機する
 	 * @param path
 	 */
-	public void captureStill(final String path);
+	public void captureStill(@NonNull final String path)
+		throws FileNotFoundException, IllegalStateException;
 
 	/**
 	 * 静止画を撮影する
@@ -158,6 +204,19 @@ public interface IRendererHolder extends IRendererCommon {
 	 * @param path
 	 * @param captureCompression JPEGの圧縮率, pngの時は無視
 	 */
-	public void captureStill(final String path, final int captureCompression);
+	public void captureStill(@NonNull final String path,
+		@IntRange(from = 1L,to = 99L) final int captureCompression)
+			throws FileNotFoundException, IllegalStateException;
 
+	/**
+	 * 静止画を撮影する
+	 * 撮影完了を待機する
+	 * @param out
+	 * @param stillCaptureFormat
+	 * @param captureCompression
+	 */
+	public void captureStill(@NonNull final OutputStream out,
+		@StillCaptureFormat final int stillCaptureFormat,
+		@IntRange(from = 1L,to = 99L) final int captureCompression)
+			throws IllegalStateException;
 }

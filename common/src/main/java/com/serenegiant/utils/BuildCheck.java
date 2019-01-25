@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -424,5 +424,53 @@ public final class BuildCheck {
 	 */
 	public static boolean isOreo() {
 		return check(Build.VERSION_CODES.O);
+	}
+	
+	/**
+	 * おれおれぇー API>=26
+	 * @return
+	 */
+	public static boolean isAndroid8() {
+		return check(Build.VERSION_CODES.O);
+	}
+	
+	/**
+	 * おれおれぇー API>=27
+	 * @return
+	 */
+	public static boolean isOMR1() {
+		return check(Build.VERSION_CODES.O_MR1);
+	}
+
+	/**
+	 * おれおれぇー MR1 API>=27
+	 * @return
+	 */
+	public static boolean isOreoMR1() {
+		return check((Build.VERSION_CODES.O_MR1));
+	}
+	
+	/**
+	 * おっ！ぱい API>=28
+	 * @return
+	 */
+	public static boolean isP() {
+		return check((Build.VERSION_CODES.P));
+	}
+
+	/**
+	 * おっ！ぱい API>=28
+	 * @return
+	 */
+	public static boolean isPie() {
+		return check((Build.VERSION_CODES.P));
+	}
+
+	/**
+	 * おっ！ぱい API>=28
+	 * @return
+	 */
+	public static boolean isAndroid9() {
+		return check((Build.VERSION_CODES.P));
 	}
 }

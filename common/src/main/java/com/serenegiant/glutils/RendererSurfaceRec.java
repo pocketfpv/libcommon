@@ -1,4 +1,22 @@
 package com.serenegiant.glutils;
+/*
+ * libcommon
+ * utility/helper classes for myself
+ *
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+*/
 
 import android.opengl.GLES20;
 import android.opengl.Matrix;
@@ -6,7 +24,6 @@ import android.opengl.Matrix;
 import com.serenegiant.utils.Time;
 
 /**
- * Created by saki on 2016/10/09.
  * 同じ内容のクラスだったからEffectRendererHolder/RendererHolderのインナークラスを外に出した
  */
 class RendererSurfaceRec {
@@ -18,7 +35,9 @@ class RendererSurfaceRec {
 	 * @param maxFps 0以下なら最大描画フレームレート制限なし, あまり正確じゃない
 	 * @return
 	 */
-	static RendererSurfaceRec newInstance(final EGLBase egl, final Object surface, final int maxFps) {
+	static RendererSurfaceRec newInstance(final EGLBase egl,
+		final Object surface, final int maxFps) {
+
 		return (maxFps > 0)
 			? new RendererSurfaceRecHasWait(egl, surface, maxFps)
 			: new RendererSurfaceRec(egl, surface);	// no limitation of maxFps
@@ -90,7 +109,8 @@ class RendererSurfaceRec {
 	public void draw(final GLDrawer2D drawer, final int textId, final float[] texMatrix) {
 		if (mTargetSurface != null) {
 			mTargetSurface.makeCurrent();
-			// 本来は映像が全面に描画されるので#glClearでクリアする必要はないけどハングアップする機種があるのでクリアしとく
+			// 本来は映像が全面に描画されるので#glClearでクリアする必要はないけど
+			// ハングアップする機種があるのでクリアしとく
 			GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 			drawer.setMvpMatrix(mMvpMatrix, 0);
 			drawer.draw(textId, texMatrix, 0);
@@ -146,7 +166,9 @@ class RendererSurfaceRec {
 		 * @param surface
 		 * @param maxFps 正数
 		 */
-		private RendererSurfaceRecHasWait(final EGLBase egl, final Object surface, final int maxFps) {
+		private RendererSurfaceRecHasWait(final EGLBase egl,
+			final Object surface, final int maxFps) {
+
 			super(egl, surface);
 			mIntervalsNs = 1000000000L / maxFps;
 			mNextDraw = Time.nanoTime() + mIntervalsNs;
@@ -158,7 +180,9 @@ class RendererSurfaceRec {
 		}
 
 		@Override
-		public void draw(final GLDrawer2D drawer, final int textId, final float[] texMatrix) {
+		public void draw(final GLDrawer2D drawer,
+			final int textId, final float[] texMatrix) {
+
 			mNextDraw = Time.nanoTime() + mIntervalsNs;
 			super.draw(drawer, textId, texMatrix);
 		}

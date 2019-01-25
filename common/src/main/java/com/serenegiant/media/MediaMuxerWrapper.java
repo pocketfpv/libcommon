@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@ import android.media.MediaCodec.BufferInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.os.Build;
-import android.support.annotation.RequiresApi;
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import android.util.Log;
 
 /**
@@ -41,22 +42,28 @@ public class MediaMuxerWrapper implements IMuxer {
 	private volatile boolean mIsStarted;
 	private boolean mReleased;
 
-	public MediaMuxerWrapper(final String output_path, final int format) throws IOException {
+	public MediaMuxerWrapper(final String output_path, final int format)
+		throws IOException {
+
 		mMuxer = new MediaMuxer(output_path, format);
 	}
 
 	@RequiresApi(api = Build.VERSION_CODES.O)
-	public MediaMuxerWrapper(final FileDescriptor fd, final int format) throws IOException {
+	public MediaMuxerWrapper(final FileDescriptor fd, final int format)
+		throws IOException {
+
 		mMuxer = new MediaMuxer(fd, format);
 	}
 	
 	@Override
-	public int addTrack(final MediaFormat format) {
+	public int addTrack(@NonNull final MediaFormat format) {
 		return mMuxer.addTrack(format);
 	}
 
 	@Override
-	public void writeSampleData(final int trackIndex, final ByteBuffer byteBuf, final BufferInfo bufferInfo) {
+	public void writeSampleData(final int trackIndex,
+		@NonNull final ByteBuffer byteBuf, @NonNull final BufferInfo bufferInfo) {
+
 		if (!mReleased) {
 			mMuxer.writeSampleData(trackIndex, byteBuf, bufferInfo);
 		}

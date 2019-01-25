@@ -4,7 +4,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,5 +26,13 @@ public class StorageInfo {
 	public StorageInfo(final long total, final long free) {
 		totalBytes = total;
 		freeBytes = free;
+	}
+	
+	@Override
+	public String toString() {
+		return "StorageInfo{" +
+			"totalBytes=" + totalBytes +
+			", freeBytes=" + freeBytes +
+			'}';
 	}
 }

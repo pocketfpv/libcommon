@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package com.serenegiant.mediaeffect;
  *  limitations under the License.
 */
 
+import androidx.annotation.NonNull;
+
 import com.serenegiant.glutils.TextureOffscreen;
 
 public class MediaEffectGLESTwoPassBase extends MediaEffectGLESBase {
@@ -25,23 +27,32 @@ public class MediaEffectGLESTwoPassBase extends MediaEffectGLESBase {
 	protected final MediaEffectKernel3x3Drawer mDrawer2;
 	protected TextureOffscreen mOutputOffscreen2;
 
-	public MediaEffectGLESTwoPassBase(final boolean isOES, final String fss) {
-		super(isOES, fss);
+	public MediaEffectGLESTwoPassBase(final int numTex,
+		final boolean isOES, final String fss) {
+
+		super(numTex, isOES, fss);
 		mDrawer2 = null;
 	}
 
-	public MediaEffectGLESTwoPassBase(final String vss, final String fss) {
-		super(false, vss, fss);
+	public MediaEffectGLESTwoPassBase(final int numTex,
+		final String vss, final String fss) {
+
+		super(numTex, false, vss, fss);
 		mDrawer2 = null;
 	}
 
-	public MediaEffectGLESTwoPassBase(final boolean isOES, final String vss, final String fss) {
-		super(isOES, vss, fss);
+	public MediaEffectGLESTwoPassBase(final int numTex,
+		final boolean isOES, final String vss, final String fss) {
+
+		super(numTex, isOES, vss, fss);
 		mDrawer2 = null;
 	}
 
-	public MediaEffectGLESTwoPassBase(final boolean isOES, final String vss1, final String fss1, final String vss2, final String fss2) {
-		super(isOES, vss1, fss1);
+	public MediaEffectGLESTwoPassBase(final int numTex, final boolean isOES,
+		final String vss1, final String fss1,
+		final String vss2, final String fss2) {
+
+		super(numTex, isOES, vss1, fss1);
 		if (!vss1.equals(vss2) || !fss1.equals(fss2)) {
 			mDrawer2 = new MediaEffectKernel3x3Drawer(isOES, vss2, fss2);
 		} else {
@@ -87,7 +98,9 @@ public class MediaEffectGLESTwoPassBase extends MediaEffectGLESBase {
 	 * @param out_tex_id
 	 */
 	@Override
-	public void apply(final int [] src_tex_ids, final int width, final int height, final int out_tex_id) {
+	public void apply(@NonNull final int [] src_tex_ids,
+		final int width, final int height, final int out_tex_id) {
+
 		if (!mEnabled) return;
 		// パス1
 		if (mOutputOffscreen == null) {
@@ -95,7 +108,7 @@ public class MediaEffectGLESTwoPassBase extends MediaEffectGLESBase {
 		}
 		mOutputOffscreen.bind();
 		try {
-			mDrawer.apply(src_tex_ids[0], mOutputOffscreen.getTexMatrix(), 0);
+			mDrawer.apply(src_tex_ids, mOutputOffscreen.getTexMatrix(), 0);
 		} finally {
 			mOutputOffscreen.unbind();
 		}
@@ -110,17 +123,49 @@ public class MediaEffectGLESTwoPassBase extends MediaEffectGLESBase {
 			mOutputOffscreen2.assignTexture(out_tex_id, width, height);
 		}
 		mOutputOffscreen2.bind();
+		final int[] ids = new int[] { mOutputOffscreen.getTexture() };
 		try {
 			if (mDrawer2 != null) {
-				mDrawer2.apply(mOutputOffscreen.getTexture(), mOutputOffscreen2.getTexMatrix(), 0);
+				mDrawer2.apply(ids, mOutputOffscreen2.getTexMatrix(), 0);
 			} else {
-				mDrawer.apply(mOutputOffscreen.getTexture(), mOutputOffscreen2.getTexMatrix(), 0);
+				mDrawer.apply(ids, mOutputOffscreen2.getTexMatrix(), 0);
 			}
 		} finally {
 			mOutputOffscreen2.unbind();
 		}
 	}
 
+	@Override
+	public void apply(@NonNull final int[] src_tex_ids,
+		@NonNull final TextureOffscreen output) {
+
+
+		if (!mEnabled) return;
+		// パス1
+		if (mOutputOffscreen == null) {
+			mOutputOffscreen = new TextureOffscreen(
+				output.getWidth(), output.getHeight(), false);
+		}
+		mOutputOffscreen.bind();
+		try {
+			mDrawer.apply(src_tex_ids, mOutputOffscreen.getTexMatrix(), 0);
+		} finally {
+			mOutputOffscreen.unbind();
+		}
+		// パス2
+		output.bind();
+		final int[] ids = new int[] { mOutputOffscreen.getTexture() };
+		try {
+			if (mDrawer2 != null) {
+				mDrawer2.apply(ids, output.getTexMatrix(), 0);
+			} else {
+				mDrawer.apply(ids, output.getTexMatrix(), 0);
+			}
+		} finally {
+			output.unbind();
+		}
+	}
+	
 	@Override
 	public void apply(final ISource src) {
 		if (!mEnabled) return;
@@ -134,17 +179,18 @@ public class MediaEffectGLESTwoPassBase extends MediaEffectGLESBase {
 		}
 		mOutputOffscreen.bind();
 		try {
-			mDrawer.apply(src_tex_ids[0], mOutputOffscreen.getTexMatrix(), 0);
+			mDrawer.apply(src_tex_ids, mOutputOffscreen.getTexMatrix(), 0);
 		} finally {
 			mOutputOffscreen.unbind();
 		}
 		// パス2
 		output_tex.bind();
+		final int[] ids = new int[] { mOutputOffscreen.getTexture() };
 		try {
 			if (mDrawer2 != null) {
-				mDrawer2.apply(mOutputOffscreen.getTexture(), output_tex.getTexMatrix(), 0);
+				mDrawer2.apply(ids, output_tex.getTexMatrix(), 0);
 			} else {
-				mDrawer.apply(mOutputOffscreen.getTexture(), output_tex.getTexMatrix(), 0);
+				mDrawer.apply(ids, output_tex.getTexMatrix(), 0);
 			}
 		} finally {
 			output_tex.unbind();

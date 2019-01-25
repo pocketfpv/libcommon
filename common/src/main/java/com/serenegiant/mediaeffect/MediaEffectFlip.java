@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,9 @@ public class MediaEffectFlip extends MediaEffect {
 	 * @param flip_vertical
 	 * @param flip_horizontal
 	 */
-	public MediaEffectFlip(final EffectContext effect_context, final boolean flip_vertical, final boolean flip_horizontal) {
+	public MediaEffectFlip(final EffectContext effect_context,
+		final boolean flip_vertical, final boolean flip_horizontal) {
+
 		super(effect_context, EffectFactory.EFFECT_FLIP);
 		setParameter(flip_vertical, flip_horizontal);
 	}
@@ -41,7 +43,9 @@ public class MediaEffectFlip extends MediaEffect {
 	 * @param flip_horizontal
 	 * @return
 	 */
-	public MediaEffectFlip setParameter(final boolean flip_vertical, final boolean flip_horizontal) {
+	public MediaEffectFlip setParameter(
+		final boolean flip_vertical, final boolean flip_horizontal) {
+
 		setParameter("vertical", flip_vertical);
 		setParameter("horizontal", flip_horizontal);
 		return this;

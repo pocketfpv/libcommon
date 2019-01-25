@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,16 @@ package com.serenegiant.glutils;
 */
 
 import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.opengl.GLES20;
+import android.opengl.GLES30;
 import android.opengl.Matrix;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import android.os.Build;
+import androidx.annotation.IntRange;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.Surface;
@@ -33,17 +37,17 @@ import android.view.SurfaceHolder;
 import com.serenegiant.utils.BuildCheck;
 
 import java.io.BufferedOutputStream;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 import static com.serenegiant.glutils.ShaderConst.GL_TEXTURE_EXTERNAL_OES;
 
 public abstract class AbstractRendererHolder implements IRendererHolder {
-//	private static final boolean DEBUG = false;	// FIXME 実働時はfalseにすること
+	private static final boolean DEBUG = false;	// FIXME 実働時はfalseにすること
 	private static final String TAG = AbstractRendererHolder.class.getSimpleName();
 	private static final String RENDERER_THREAD_NAME = "RendererHolder";
 	private static final String CAPTURE_THREAD_NAME = "CaptureTask";
@@ -52,6 +56,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	protected static final int REQUEST_UPDATE_SIZE = 2;
 	protected static final int REQUEST_ADD_SURFACE = 3;
 	protected static final int REQUEST_REMOVE_SURFACE = 4;
+	protected static final int REQUEST_REMOVE_SURFACE_ALL = 12;
 	protected static final int REQUEST_RECREATE_MASTER_SURFACE = 5;
 	protected static final int REQUEST_MIRROR = 6;
 	protected static final int REQUEST_ROTATE = 7;
@@ -60,18 +65,32 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	protected static final int REQUEST_SET_MVP = 10;
 
 	protected final Object mSync = new Object();
+	@Nullable
 	private final RenderHolderCallback mCallback;
-	protected volatile boolean isRunning;
+	private volatile boolean isRunning;
 
-	private File mCaptureFile;
-	private int mCaptureCompression;
+	private OutputStream mCaptureStream;
+	@StillCaptureFormat
+	private int mCaptureFormat;
+	@IntRange(from = 1L,to = 99L)
+	private int mCaptureCompression = DEFAULT_CAPTURE_COMPRESSION;
 	protected final RendererTask mRendererTask;
 
 	protected AbstractRendererHolder(final int width, final int height,
 		@Nullable final RenderHolderCallback callback) {
 		
+		this(width, height,
+			3, null, EglTask.EGL_FLAG_RECORDABLE,
+			callback);
+	}
+
+	protected AbstractRendererHolder(final int width, final int height,
+		final int maxClientVersion, final EGLBase.IContext sharedContext, final int flags,
+		@Nullable final RenderHolderCallback callback) {
+		
 		mCallback = callback;
-		mRendererTask = createRendererTask(width, height);
+		mRendererTask = createRendererTask(width, height,
+			maxClientVersion, sharedContext, flags);
 		new Thread(mRendererTask, RENDERER_THREAD_NAME).start();
 		if (!mRendererTask.waitReady()) {
 			// 初期化に失敗した時
@@ -99,6 +118,11 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 			mSync.notifyAll();
 		}
 //		if (DEBUG) Log.v(TAG, "release:finished");
+	}
+
+	@Nullable
+	public EGLBase.IContext getContext() {
+		return mRendererTask.getContext();
 	}
 
 	/**
@@ -133,7 +157,9 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	 * @param height
 	 */
 	@Override
-	public void resize(final int width, final int height) {
+	public void resize(final int width, final int height)
+		throws IllegalStateException {
+
 		mRendererTask.resize(width, height);
 	}
 
@@ -158,31 +184,43 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 
 	/**
 	 * 分配描画用のSurfaceを追加
+	 * このメソッドは指定したSurfaceが追加されるか
+	 * interruptされるまでカレントスレッドをブロックする。
 	 * @param id 普通はSurface#hashCodeを使う
 	 * @param surface
 	 * @param isRecordable
 	 */
 	@Override
-	public void addSurface(final int id, final Object surface, final boolean isRecordable) {
+	public void addSurface(final int id,
+		final Object surface, final boolean isRecordable)
+			throws IllegalStateException, IllegalArgumentException {
+
 //		if (DEBUG) Log.v(TAG, "addSurface:id=" + id + ",surface=" + surface);
 		mRendererTask.addSurface(id, surface);
 	}
 
 	/**
 	 * 分配描画用のSurfaceを追加
+	 * このメソッドは指定したSurfaceが追加されるか
+	 * interruptされるまでカレントスレッドをブロックする。
 	 * @param id 普通はSurface#hashCodeを使う
 	 * @param surface
 	 * @param isRecordable
 	 * @param maxFps
 	 */
 	@Override
-	public void addSurface(final int id, final Object surface, final boolean isRecordable, final int maxFps) {
+	public void addSurface(final int id,
+		final Object surface, final boolean isRecordable, final int maxFps)
+			throws IllegalStateException, IllegalArgumentException {
+
 //		if (DEBUG) Log.v(TAG, "addSurface:id=" + id + ",surface=" + surface);
 		mRendererTask.addSurface(id, surface, maxFps);
 	}
 
 	/**
-	 * 分配描画用のSurfaceを削除
+	 * 分配描画用のSurfaceを削除要求する。
+	 * このメソッドは指定したSurfaceが削除されるか
+	 * interruptされるまでカレントスレッドをブロックする。
 	 * @param id
 	 */
 	@Override
@@ -191,6 +229,17 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		mRendererTask.removeSurface(id);
 	}
 
+	/**
+	 * 分配描画用のSurfaceを全て削除要求する
+	 * このメソッドはSurfaceが削除されるか
+	 * interruptされるまでカレントスレッドをブロックする。
+	 */
+	@Override
+	public void removeSurfaceAll() {
+//		if (DEBUG) Log.v(TAG, "removeSurfaceAll:id=" + id);
+		mRendererTask.removeSurfaceAll();
+	}
+	
 	/**
 	 * 分配描画用のSurfaceを指定した色で塗りつぶす
 	 * @param id
@@ -258,9 +307,15 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	 * 撮影完了を待機しない
 	 * @param path
 	 */
+	@Deprecated
 	@Override
-	public void captureStillAsync(final String path) {
-		captureStillAsync(path, 90);
+	public void captureStillAsync(@NonNull final String path)
+		throws FileNotFoundException, IllegalStateException {
+
+		if (DEBUG) Log.v(TAG, "captureStillAsync:" + path);
+
+		captureStill(new BufferedOutputStream(new FileOutputStream(path)),
+			getCaptureFormat(path), DEFAULT_CAPTURE_COMPRESSION, false);
 	}
 	
 	/**
@@ -269,15 +324,17 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	 * @param path
 	 * @param captureCompression
 	 */
+	@Deprecated
 	@Override
-	public void captureStillAsync(final String path, final int captureCompression) {
-//		if (DEBUG) Log.v(TAG, "captureStill:" + path);
-		final File file = new File(path);
-		synchronized (mSync) {
-			mCaptureFile = file;
-			mCaptureCompression = captureCompression;
-			mSync.notifyAll();
-		}
+	public void captureStillAsync(@NonNull final String path,
+		@IntRange(from = 1L,to = 99L) final int captureCompression)
+			throws FileNotFoundException, IllegalStateException {
+
+		if (DEBUG) Log.v(TAG, "captureStillAsync:" + path
+			+ ",captureCompression=" + captureCompression);
+
+		captureStill(new BufferedOutputStream(new FileOutputStream(path)),
+			getCaptureFormat(path), captureCompression, false);
 	}
 
 	/**
@@ -286,8 +343,13 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	 * @param path
 	 */
 	@Override
-	public void captureStill(final String path) {
-		captureStill(path, 90);
+	public void captureStill(@NonNull final String path)
+		throws FileNotFoundException, IllegalStateException {
+
+		if (DEBUG) Log.v(TAG, "captureStill:" + path);
+
+		captureStill(new BufferedOutputStream(new FileOutputStream(path)),
+			getCaptureFormat(path), DEFAULT_CAPTURE_COMPRESSION, true);
 	}
 	
 	/**
@@ -296,26 +358,124 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	 * @param path
 	 */
 	@Override
-	public void captureStill(final String path, final int captureCompression) {
-//		if (DEBUG) Log.v(TAG, "captureStill:" + path);
-		final File file = new File(path);
-		synchronized (mSync) {
-			mCaptureFile = file;
-			mCaptureCompression = captureCompression;
-			mSync.notifyAll();
-			try {
-//				if (DEBUG) Log.v(TAG, "静止画撮影待ち");
-				mSync.wait();
-			} catch (final InterruptedException e) {
-				// ignore
-			}
-		}
-//		if (DEBUG) Log.v(TAG, "captureStill終了");
+	public void captureStill(@NonNull final String path,
+		@IntRange(from = 1L,to = 99L)final int captureCompression)
+			throws FileNotFoundException, IllegalStateException {
+
+		if (DEBUG) Log.v(TAG, "captureStill:" + path
+			+ ",captureCompression=" + captureCompression);
+		captureStill(new BufferedOutputStream(new FileOutputStream(path)),
+			getCaptureFormat(path), captureCompression, true);
 	}
 
+	/**
+	 * 静止画を撮影する
+	 * 撮影完了を待機する
+	 * @param out
+	 * @param captureFormat
+	 * @param captureCompression
+	 */
+	@Override
+	public void captureStill(@NonNull final OutputStream out,
+		@StillCaptureFormat final int captureFormat,
+		@IntRange(from = 1L,to = 99L) final int captureCompression)
+			throws IllegalStateException {
+		
+		captureStill(out, captureFormat, captureCompression, true);
+	}
+	
+	/**
+	 * 実際の静止画撮影要求メソッド
+	 * @param out
+	 * @param captureFormat
+	 * @param captureCompression
+	 * @param needWait 撮影完了を待機するを待機するかどうか
+	 */
+	private void captureStill(@NonNull final OutputStream out,
+		@StillCaptureFormat final int captureFormat,
+		@IntRange(from = 1L,to = 99L) final int captureCompression,
+		final boolean needWait) throws IllegalStateException {
+
+		synchronized (mSync) {
+			if (!isRunning) {
+				throw new IllegalStateException("already released?");
+			}
+			if (mCaptureStream != null) {
+				throw new IllegalStateException("already run still capturing now");
+			}
+			mCaptureStream = out;
+			mCaptureFormat = captureFormat;
+			mCaptureCompression = captureCompression;
+			mSync.notifyAll();
+			if (needWait) {
+				// 撮影完了街をする場合
+				for ( ; isRunning && (mCaptureStream != null) ; ) {
+					try {
+						if (DEBUG) Log.v(TAG, "静止画撮影待ち");
+						mSync.wait(1000);
+					} catch (final InterruptedException e) {
+						// ignore
+					}
+				}
+			}
+		}
+		if (DEBUG) Log.v(TAG, "captureStill:終了");
+	}
+	
+	/**
+	 * パス文字列の拡張子を調べて静止画圧縮フォーマットを取得する。
+	 * jpeg(jpg)/png/webpのいずれでもなければIllegalArgumentExceptionを投げる
+	 * @param path
+	 * @return
+	 * @throws IllegalArgumentException
+	 */
+	@StillCaptureFormat
+	private static int getCaptureFormat(@NonNull final String path)
+		throws IllegalArgumentException {
+
+		int result;
+		final String _path = path.toLowerCase();
+		if (path.endsWith(".jpg") || path.endsWith(".jpeg")) {
+			result = OUTPUT_FORMAT_JPEG;
+		} else if (path.endsWith(".png")) {
+			result = OUTPUT_FORMAT_PNG;
+		} else if (path.endsWith(".webp")) {
+			result = OUTPUT_FORMAT_WEBP;
+		} else {
+			throw new IllegalArgumentException("unknown compress format(extension)");
+		}
+		return result;
+	}
+	
+	/**
+	 * 静止画圧縮フォーマットをBitmap.CompressFormatに変換する
+	 * @param captureFormat
+	 * @return
+	 */
+	private static Bitmap.CompressFormat getCaptureFormat(
+		@StillCaptureFormat final int captureFormat) {
+
+		Bitmap.CompressFormat result;
+		switch (captureFormat) {
+		case OUTPUT_FORMAT_JPEG:
+			result = Bitmap.CompressFormat.JPEG;
+			break;
+		case OUTPUT_FORMAT_PNG:
+			result = Bitmap.CompressFormat.PNG;
+			break;
+		case OUTPUT_FORMAT_WEBP:
+			result = Bitmap.CompressFormat.WEBP;
+			break;
+		default:
+			result = Bitmap.CompressFormat.JPEG;
+			break;
+		}
+		return result;
+	}
 //--------------------------------------------------------------------------------
 	@NonNull
-	protected abstract RendererTask createRendererTask(final int width, final int height);
+	protected abstract RendererTask createRendererTask(final int width, final int height,
+		final int maxClientVersion, final EGLBase.IContext sharedContext, final int flags);
 	
 	protected void startCaptureTask() {
 		new Thread(mCaptureTask, CAPTURE_THREAD_NAME).start();
@@ -324,12 +484,14 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 				try {
 					mSync.wait();
 				} catch (final InterruptedException e) {
+					// ignore
 				}
 			}
 		}
 	}
 	
 	protected void notifyCapture() {
+//		if (DEBUG) Log.v(TAG, "notifyCapture:");
 		synchronized (mCaptureTask) {
 			// キャプチャタスクに映像が更新されたことを通知
 			mCaptureTask.notify();
@@ -369,8 +531,8 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 
 //--------------------------------------------------------------------------------
 	protected abstract static class BaseRendererTask extends EglTask {
-		private final Object mClientSync = new Object();
-		private final SparseArray<RendererSurfaceRec> mClients = new SparseArray<RendererSurfaceRec>();
+		private final SparseArray<RendererSurfaceRec> mClients
+			= new SparseArray<RendererSurfaceRec>();
 		private final AbstractRendererHolder mParent;
 		private int mVideoWidth, mVideoHeight;
 		final float[] mTexMatrix = new float[16];
@@ -380,14 +542,25 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		@MirrorMode
 		private int mMirror = MIRROR_NORMAL;
 		private int mRotation = 0;
+		private volatile boolean mIsFirstFrameRendered;
 		
-		public BaseRendererTask(final AbstractRendererHolder parent, final int width, final int height) {
-			super(3, null, EglTask.EGL_FLAG_RECORDABLE);
-			mParent = parent;
-			mVideoWidth = width;
-			mVideoHeight = height;
+		public BaseRendererTask(@NonNull final AbstractRendererHolder parent,
+			final int width, final int height) {
+
+			this(parent, width, height,
+				3, null, EglTask.EGL_FLAG_RECORDABLE);
 		}
 
+		public BaseRendererTask(@NonNull final AbstractRendererHolder parent,
+			final int width, final int height,
+			final int maxClientVersion,
+			final EGLBase.IContext sharedContext, final int flags) {
+	
+			super(maxClientVersion, sharedContext, flags);
+			mParent = parent;
+			mVideoWidth = width > 0 ? width : 640;
+			mVideoHeight = height > 0 ? height : 480;
+		}
 		/**
 		 * ワーカースレッド開始時の処理(ここはワーカースレッド上)
 		 */
@@ -408,7 +581,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 */
 		@Override
 		protected void onStop() {
-//				if (DEBUG) Log.v(TAG, "onStop");
+//			if (DEBUG) Log.v(TAG, "onStop");
 			synchronized (mParent.mSync) {
 				mParent.isRunning = false;
 				mParent.mSync.notifyAll();
@@ -430,7 +603,9 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		protected abstract void internalOnStop();
 
 		@Override
-		protected Object processRequest(final int request, final int arg1, final int arg2, final Object obj) {
+		protected Object processRequest(final int request,
+			final int arg1, final int arg2, final Object obj) {
+
 			switch (request) {
 			case REQUEST_DRAW:
 				handleDraw();
@@ -443,6 +618,9 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 				break;
 			case REQUEST_REMOVE_SURFACE:
 				handleRemoveSurface(arg1);
+				break;
+			case REQUEST_REMOVE_SURFACE_ALL:
+				handleRemoveAll();
 				break;
 			case REQUEST_RECREATE_MASTER_SURFACE:
 				handleReCreateMasterSurface();
@@ -471,7 +649,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 * @return
 		 */
 		public Surface getSurface() {
-	//			if (DEBUG) Log.v(TAG, "getSurface:" + mMasterSurface);
+//			if (DEBUG) Log.v(TAG, "getSurface:" + mMasterSurface);
 			checkMasterSurface();
 			return mMasterSurface;
 		}
@@ -481,44 +659,58 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 * @return
 		 */
 		public SurfaceTexture getSurfaceTexture() {
-	//		if (DEBUG) Log.v(TAG, "getSurfaceTexture:" + mMasterTexture);
+//		if (DEBUG) Log.v(TAG, "getSurfaceTexture:" + mMasterTexture);
 			checkMasterSurface();
 			return mMasterTexture;
 		}
 	
 		/**
 		 * 分配描画用のSurfaceを追加
+		 * このメソッドは指定したSurfaceが追加されるか
+		 * interruptされるまでカレントスレッドをブロックする。
 		 * @param id
 		 * @param surface
 		 */
-		public void addSurface(final int id, final Object surface) {
+		public void addSurface(final int id, final Object surface)
+			throws IllegalStateException, IllegalArgumentException {
+
 			addSurface(id, surface, -1);
 		}
 	
 		/**
 		 * 分配描画用のSurfaceを追加
+		 * このメソッドは指定したSurfaceが追加されるか
+		 * interruptされるまでカレントスレッドをブロックする。
 		 * @param id
 		 * @param surface
 		 */
-		public void addSurface(final int id, final Object surface, final int maxFps) {
+		public void addSurface(final int id,
+			final Object surface, final int maxFps)
+				throws IllegalStateException, IllegalArgumentException {
+
 			checkFinished();
-			if (!((surface instanceof SurfaceTexture) || (surface instanceof Surface) || (surface instanceof SurfaceHolder))) {
-				throw new IllegalArgumentException("Surface should be one of Surface, SurfaceTexture or SurfaceHolder");
+			if (!((surface instanceof SurfaceTexture)
+				|| (surface instanceof Surface)
+				|| (surface instanceof SurfaceHolder))) {
+
+				throw new IllegalArgumentException(
+					"Surface should be one of Surface, SurfaceTexture or SurfaceHolder");
 			}
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				if (mClients.get(id) == null) {
 					for ( ; isRunning() ; ) {
 						if (offer(REQUEST_ADD_SURFACE, id, maxFps, surface)) {
 							try {
-								mClientSync.wait();
+								mClients.wait();
 							} catch (final InterruptedException e) {
 								// ignore
 							}
 							break;
 						} else {
+							// キューに追加できなかった時は待機する
 							try {
-								mClientSync.wait(10);
-							} catch (InterruptedException e) {
+								mClients.wait(5);
+							} catch (final InterruptedException e) {
 								break;
 							}
 						}
@@ -529,23 +721,26 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 	
 		/**
 		 * 分配描画用のSurfaceを削除
+		 * このメソッドは指定したSurfaceが削除されるか
+		 * interruptされるまでカレントスレッドをブロックする。
 		 * @param id
 		 */
 		public void removeSurface(final int id) {
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				if (mClients.get(id) != null) {
 					for ( ; isRunning() ; ) {
 						if (offer(REQUEST_REMOVE_SURFACE, id)) {
 							try {
-								mClientSync.wait();
+								mClients.wait();
 							} catch (final InterruptedException e) {
 								// ignore
 							}
 							break;
 						} else {
+							// キューに追加できなかった時は待機する
 							try {
-								mClientSync.wait(10);
-							} catch (InterruptedException e) {
+								mClients.wait(5);
+							} catch (final InterruptedException e) {
 								break;
 							}
 						}
@@ -553,7 +748,34 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 				}
 			}
 		}
-		
+	
+		/**
+		 * 分配描画用のSurfaceを全て削除する
+		 * このメソッドはSurfaceが削除されるか
+		 * interruptされるまでカレントスレッドをブロックする。
+		 */
+		public void removeSurfaceAll() {
+			synchronized (mClients) {
+				for ( ; isRunning() ; ) {
+					if (offer(REQUEST_REMOVE_SURFACE_ALL)) {
+						try {
+							mClients.wait();
+						} catch (final InterruptedException e) {
+							// ignore
+						}
+						break;
+					} else {
+						// キューに追加できなかった時は待機する
+						try {
+							mClients.wait(5);
+						} catch (final InterruptedException e) {
+							break;
+						}
+					}
+				}
+			}
+		}
+				
 		/**
 		 * 指定したIDの分配描画用のSurfaceを指定した色で塗りつぶす
 		 * @param id
@@ -576,14 +798,14 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		}
 		
 		public boolean isEnabled(final int id) {
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				final RendererSurfaceRec rec = mClients.get(id);
 				return rec != null && rec.isEnabled();
 			}
 		}
 		
 		public void setEnabled(final int id, final boolean enable) {
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				final RendererSurfaceRec rec = mClients.get(id);
 				if (rec != null) {
 					rec.setEnabled(enable);
@@ -596,7 +818,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 * @return
 		 */
 		public int getCount() {
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				return mClients.size();
 			}
 		}
@@ -606,9 +828,13 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 * @param width
 		 * @param height
 		 */
-		public void resize(final int width, final int height) {
+		public void resize(final int width, final int height)
+			throws IllegalStateException {
+
 			checkFinished();
-			if ((mVideoWidth != width) || (mVideoHeight != height)) {
+			if ( ((width > 0) && (height > 0))
+				&& ((mVideoWidth != width) || (mVideoHeight != height)) ) {
+
 				offer(REQUEST_UPDATE_SIZE, width, height);
 			}
 		}
@@ -644,10 +870,14 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 			}
 		}
 	
-		protected void checkFinished() {
+		protected void checkFinished() throws IllegalStateException {
 			if (isFinished()) {
-				throw new RuntimeException("already finished");
+				throw new IllegalStateException("already finished");
 			}
+		}
+
+		protected AbstractRendererHolder getParent() {
+			return mParent;
 		}
 
 //================================================================================
@@ -662,19 +892,37 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 				offer(REQUEST_RECREATE_MASTER_SURFACE);
 				return;
 			}
-			try {
-				makeCurrent();
-				mMasterTexture.updateTexImage();
-				mMasterTexture.getTransformMatrix(mTexMatrix);
-			} catch (final Exception e) {
-				Log.e(TAG, "draw:thread id =" + Thread.currentThread().getId(), e);
-				offer(REQUEST_RECREATE_MASTER_SURFACE);
-				return;
+			if (mIsFirstFrameRendered) {
+				try {
+					makeCurrent();
+					handleUpdateTexture();
+				} catch (final Exception e) {
+					Log.e(TAG, "draw:thread id =" + Thread.currentThread().getId(), e);
+					offer(REQUEST_RECREATE_MASTER_SURFACE);
+					return;
+				}
+				mParent.notifyCapture();
+				preprocess();
+				handleDrawClients();
+				mParent.callOnFrameAvailable();
 			}
-			mParent.notifyCapture();
-			preprocess();
-			// 各Surfaceへ描画する
-			synchronized (mClientSync) {
+			makeCurrent();
+			GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+			GLES20.glFlush();
+		}
+
+		protected void handleUpdateTexture() {
+			mMasterTexture.updateTexImage();
+			mMasterTexture.getTransformMatrix(mTexMatrix);
+		}
+		
+		protected abstract void preprocess();
+	
+		/**
+		 * 各Surfaceへ描画する
+		 */
+		protected void handleDrawClients() {
+			synchronized (mClients) {
 				final int n = mClients.size();
 				RendererSurfaceRec client;
 				for (int i = n - 1; i >= 0; i--) {
@@ -690,24 +938,29 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 					}
 				}
 			}
-			mParent.callOnFrameAvailable();
-			makeCurrent();
-			GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-			GLES20.glFlush();
 		}
-
-		protected abstract void preprocess();
-		protected abstract void onDrawClient(final RendererSurfaceRec client, final int texId, final float[] texMatrix);
+	
+		/**
+		 * Surface1つの描画処理
+		 * @param client
+		 * @param texId
+		 * @param texMatrix
+		 */
+		protected abstract void onDrawClient(
+			@NonNull final RendererSurfaceRec client,
+			final int texId, final float[] texMatrix);
 		
 		/**
 		 * 指定したIDの分配描画先Surfaceを追加する
 		 * @param id
 		 * @param surface
 		 */
-		protected void handleAddSurface(final int id, final Object surface, final int maxFps) {
-	//			if (DEBUG) Log.v(TAG, "handleAddSurface:id=" + id);
+		protected void handleAddSurface(final int id,
+			final Object surface, final int maxFps) {
+
+//			if (DEBUG) Log.v(TAG, "handleAddSurface:id=" + id);
 			checkSurface();
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				RendererSurfaceRec client = mClients.get(id);
 				if (client == null) {
 					try {
@@ -720,7 +973,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 				} else {
 					Log.w(TAG, "surface is already added: id=" + id);
 				}
-				mClientSync.notifyAll();
+				mClients.notifyAll();
 			}
 		}
 	
@@ -730,7 +983,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 */
 		protected void handleRemoveSurface(final int id) {
 	//			if (DEBUG) Log.v(TAG, "handleRemoveSurface:id=" + id);
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				final RendererSurfaceRec client = mClients.get(id);
 				if (client != null) {
 					mClients.remove(id);
@@ -740,7 +993,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 					client.release();
 				}
 				checkSurface();
-				mClientSync.notifyAll();
+				mClients.notifyAll();
 			}
 		}
 				
@@ -749,7 +1002,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 */
 		protected void handleRemoveAll() {
 	//			if (DEBUG) Log.v(TAG, "handleRemoveAll:");
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				final int n = mClients.size();
 				RendererSurfaceRec client;
 				for (int i = 0; i < n; i++) {
@@ -762,6 +1015,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 					}
 				}
 				mClients.clear();
+				mClients.notifyAll();
 			}
 	//			if (DEBUG) Log.v(TAG, "handleRemoveAll:finished");
 		}
@@ -771,7 +1025,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 */
 		protected void checkSurface() {
 	//			if (DEBUG) Log.v(TAG, "checkSurface");
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				final int n = mClients.size();
 				for (int i = 0; i < n; i++) {
 					final RendererSurfaceRec client = mClients.valueAt(i);
@@ -792,7 +1046,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 * @param color
 		 */
 		protected void handleClear(final int id, final int color) {
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				final RendererSurfaceRec client = mClients.get(id);
 				if ((client != null) && client.isValid()) {
 					client.clear(color);
@@ -805,7 +1059,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 * @param color
 		 */
 		protected void handleClearAll(final int color) {
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				final int n = mClients.size();
 				for (int i = 0; i < n; i++) {
 					final RendererSurfaceRec client = mClients.valueAt(i);
@@ -827,7 +1081,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 
 			if ((mvp instanceof float[]) && (((float[]) mvp).length >= 16 + offset)) {
 				final float[] array = (float[])mvp;
-				synchronized (mClientSync) {
+				synchronized (mClients) {
 					final RendererSurfaceRec client = mClients.get(id);
 					if ((client != null) && client.isValid()) {
 						System.arraycopy(array, offset, client.mMvpMatrix, 0, 16);
@@ -859,11 +1113,20 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 */
 		protected void handleReleaseMasterSurface() {
 			if (mMasterSurface != null) {
+				try {
+					mMasterSurface.release();
+				} catch (final Exception e) {
+					Log.w(TAG, e);
+				}
 				mMasterSurface = null;
 				mParent.callOnDestroy();
 			}
 			if (mMasterTexture != null) {
-				mMasterTexture.release();
+				try {
+					mMasterTexture.release();
+				} catch (final Exception e) {
+					Log.w(TAG, e);
+				}
 				mMasterTexture = null;
 			}
 			if (mTexId != 0) {
@@ -879,7 +1142,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 */
 		@SuppressLint("NewApi")
 		protected void handleResize(final int width, final int height) {
-	//			if (DEBUG) Log.v(TAG, String.format("handleResize:(%d,%d)", width, height));
+//			if (DEBUG) Log.v(TAG, String.format("handleResize:(%d,%d)", width, height));
 			mVideoWidth = width;
 			mVideoHeight = height;
 			if (BuildCheck.isAndroid4_1()) {
@@ -893,7 +1156,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		 */
 		protected void handleMirror(final int mirror) {
 			mMirror = mirror;
-			synchronized (mClientSync) {
+			synchronized (mClients) {
 				final int n = mClients.size();
 				for (int i = 0; i < n; i++) {
 					final RendererSurfaceRec client = mClients.valueAt(i);
@@ -920,9 +1183,13 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		/**
 		 * TextureSurfaceで映像を受け取った際のコールバックリスナー
 		 */
-		private final SurfaceTexture.OnFrameAvailableListener mOnFrameAvailableListener = new SurfaceTexture.OnFrameAvailableListener() {
+		protected final SurfaceTexture.OnFrameAvailableListener
+			mOnFrameAvailableListener = new SurfaceTexture.OnFrameAvailableListener() {
+
 			@Override
 			public void onFrameAvailable(final SurfaceTexture surfaceTexture) {
+				removeRequest(REQUEST_DRAW);
+				mIsFirstFrameRendered = true;
 				offer(REQUEST_DRAW);
 			}
 		};
@@ -936,8 +1203,18 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 
 		protected GLDrawer2D mDrawer;
 
-		public RendererTask(final AbstractRendererHolder parent, final int width, final int height) {
+		public RendererTask(@NonNull final AbstractRendererHolder parent,
+			final int width, final int height) {
+
 			super(parent, width, height);
+		}
+
+		public RendererTask(@NonNull final AbstractRendererHolder parent,
+			final int width, final int height,
+			final int maxClientVersion,
+			final EGLBase.IContext sharedContext, final int flags) {
+			
+			super(parent, width, height, maxClientVersion, sharedContext, flags);
 		}
 
 		@Override
@@ -958,7 +1235,9 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		}
 		
 		@Override
-		protected void onDrawClient(final RendererSurfaceRec client, final int texId, final float[] texMatrix) {
+		protected void onDrawClient(@NonNull final RendererSurfaceRec client,
+			final int texId, final float[] texMatrix) {
+
 			client.draw(mDrawer, texId, texMatrix);
 		}
 	}
@@ -982,32 +1261,37 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 //			if (DEBUG) Log.v(TAG, "captureTask start");
 			synchronized (mSync) {
 				// 描画スレッドが実行されるまで待機
-				if (!isRunning) {
+				for (; !isRunning && !mRendererTask.isFinished(); ) {
 					try {
-						mSync.wait();
+						mSync.wait(1000);
 					} catch (final InterruptedException e) {
+						break;
 					}
 				}
 			}
-			init();
-			try {
-				if (eglBase.getGlVersion() > 2) {
-					captureLoopGLES3();
-				} else {
-					captureLoopGLES2();
+			if (isRunning) {
+				init();
+				try {
+					if ((eglBase.getGlVersion() > 2) && (BuildCheck.isAndroid4_3())) {
+						captureLoopGLES3();
+					} else {
+						captureLoopGLES2();
+					}
+				} catch (final Exception e) {
+					Log.w(TAG, e);
+				} finally {
+					// release resources
+					release();
 				}
-			} catch (final Exception e) {
-				Log.w(TAG, e);
-			} finally {
-				// release resources
-				release();
 			}
 //			if (DEBUG) Log.v(TAG, "captureTask finished");
 		}
 
 		private final void init() {
-	    	eglBase = EGLBase.createFrom(3, mRendererTask.getContext(), false, 0, false);
-	    	captureSurface = eglBase.createOffscreen(mRendererTask.width(), mRendererTask.height());
+	    	eglBase = EGLBase.createFrom(3,
+	    		mRendererTask.getContext(), false, 0, false);
+	    	captureSurface = eglBase.createOffscreen(
+	    		mRendererTask.width(), mRendererTask.height());
 			Matrix.setIdentityM(mMvpMatrix, 0);
 	    	drawer = new GLDrawer2D(true);
 			setupCaptureDrawer(drawer);
@@ -1016,31 +1300,32 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		private final void captureLoopGLES2() {
 			int width = -1, height = -1;
 			ByteBuffer buf = null;
-			File captureFile = null;
-			int captureCompression = 90;
+			int captureCompression = DEFAULT_CAPTURE_COMPRESSION;
 //			if (DEBUG) Log.v(TAG, "captureTask loop");
 			for (; isRunning ;) {
 				synchronized (mSync) {
-					if (captureFile == null) {
-						if (mCaptureFile == null) {
-							try {
-								mSync.wait();
-							} catch (final InterruptedException e) {
-								break;
-							}
+					if (mCaptureStream == null) {
+						try {
+							mSync.wait();
+						} catch (final InterruptedException e) {
+							break;
 						}
-						if (mCaptureFile != null) {
+						if (mCaptureStream != null) {
 //							if (DEBUG) Log.i(TAG, "静止画撮影要求を受け取った");
-							captureFile = mCaptureFile;
-							mCaptureFile = null;
 							captureCompression = mCaptureCompression;
 							if ((captureCompression <= 0) || (captureCompression >= 100)) {
 								captureCompression = 90;
 							}
+						} else {
+							// 起床されたけどmCaptureStreamがnullだった
+							continue;
 						}
-						continue;
 					}
-					if (buf == null | width != mRendererTask.width() || height != mRendererTask.height()) {
+					if (DEBUG) Log.v(TAG, "#captureLoopGLES2:start capture");
+					if ((buf == null)
+						|| (width != mRendererTask.width())
+						|| (height != mRendererTask.height())) {
+
 						width = mRendererTask.width();
 						height = mRendererTask.height();
 						buf = ByteBuffer.allocateDirect(width * height * 4);
@@ -1051,7 +1336,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 				    	}
 				    	captureSurface = eglBase.createOffscreen(width, height);
 					}
-					if (isRunning) {
+					if (isRunning && (width > 0) && (height > 0)) {
 						setMirror(mMvpMatrix, mRendererTask.mirror());
 						mMvpMatrix[5] *= -1.0f;	// flip up-side down
 						drawer.setMvpMatrix(mMvpMatrix, 0);
@@ -1059,33 +1344,31 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 						drawer.draw(mRendererTask.mTexId, mRendererTask.mTexMatrix, 0);
 						captureSurface.swap();
 				        buf.clear();
-				        GLES20.glReadPixels(0, 0, width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, buf);
+				        GLES20.glReadPixels(0, 0, width, height,
+				        	GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, buf);
 //				        if (DEBUG) Log.v(TAG, "save pixels to file:" + captureFile);
-				        Bitmap.CompressFormat compressFormat = Bitmap.CompressFormat.PNG;
-				        if (captureFile.toString().endsWith(".jpg")) {
-				        	compressFormat = Bitmap.CompressFormat.JPEG;
-				        }
-				        BufferedOutputStream os = null;
+				        final Bitmap.CompressFormat compressFormat
+				        	= getCaptureFormat(mCaptureFormat);
 						try {
 					        try {
-					            os = new BufferedOutputStream(new FileOutputStream(captureFile));
-					            final Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+					            final Bitmap bmp = Bitmap.createBitmap(
+					            	width, height, Bitmap.Config.ARGB_8888);
 						        buf.clear();
 					            bmp.copyPixelsFromBuffer(buf);
-					            bmp.compress(compressFormat, captureCompression, os);
+					            bmp.compress(compressFormat, captureCompression, mCaptureStream);
 					            bmp.recycle();
-					            os.flush();
+								mCaptureStream.flush();
 					        } finally {
-					            if (os != null) os.close();
+					            mCaptureStream.close();
 					        }
-						} catch (final FileNotFoundException e) {
-							Log.w(TAG, "failed to save file", e);
 						} catch (final IOException e) {
 							Log.w(TAG, "failed to save file", e);
 						}
+					} else if (isRunning) {
+						Log.w(TAG, "#captureLoopGLES3:unexpectedly width/height is zero");
 					}
-//					if (DEBUG) Log.i(TAG, "静止画撮影終了");
-					captureFile = null;
+					if (DEBUG) Log.i(TAG, "#captureLoopGLES2:静止画撮影終了");
+					mCaptureStream = null;
 					mSync.notifyAll();
 				}	// end of synchronized (mSync)
 			}	// end of for (; isRunning ;)
@@ -1094,35 +1377,36 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 			}
 		}
 
-		// FIXME これはGL|ES3のPBOとglMapBufferRange/glUnmapBufferを使うように変更する
+		@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
 		private final void captureLoopGLES3() {
 			int width = -1, height = -1;
 			ByteBuffer buf = null;
-			File captureFile = null;
 			int captureCompression = 90;
 //			if (DEBUG) Log.v(TAG, "captureTask loop");
 			for (; isRunning ;) {
 				synchronized (mSync) {
-					if (captureFile == null) {
-						if (mCaptureFile == null) {
-							try {
-								mSync.wait();
-							} catch (final InterruptedException e) {
-								break;
-							}
+					if (mCaptureStream == null) {
+						try {
+							mSync.wait();
+						} catch (final InterruptedException e) {
+							break;
 						}
-						if (mCaptureFile != null) {
+						if (mCaptureStream != null) {
 //							if (DEBUG) Log.i(TAG, "静止画撮影要求を受け取った");
-							captureFile = mCaptureFile;
-							mCaptureFile = null;
 							captureCompression = mCaptureCompression;
 							if ((captureCompression <= 0) || (captureCompression >= 100)) {
 								captureCompression = 90;
 							}
+						} else {
+							// 起床されたけどmCaptureStreamがnullだった
+							continue;
 						}
-						continue;
 					}
-					if (buf == null | width != mRendererTask.width() || height != mRendererTask.height()) {
+					if (DEBUG) Log.v(TAG, "#captureLoopGLES3:start capture");
+					if ((buf == null)
+						|| (width != mRendererTask.width())
+						|| (height != mRendererTask.height())) {
+
 						width = mRendererTask.width();
 						height = mRendererTask.height();
 						buf = ByteBuffer.allocateDirect(width * height * 4);
@@ -1133,7 +1417,7 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 				    	}
 				    	captureSurface = eglBase.createOffscreen(width, height);
 					}
-					if (isRunning) {
+					if (isRunning && (width > 0) && (height > 0)) {
 						setMirror(mMvpMatrix, mRendererTask.mirror());
 						mMvpMatrix[5] *= -1.0f;	// flip up-side down
 						drawer.setMvpMatrix(mMvpMatrix, 0);
@@ -1141,33 +1425,32 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 						drawer.draw(mRendererTask.mTexId, mRendererTask.mTexMatrix, 0);
 						captureSurface.swap();
 				        buf.clear();
-				        GLES20.glReadPixels(0, 0, width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, buf);
+						// FIXME これはGL|ES3のPBOとglMapBufferRange/glUnmapBufferを使うように変更する
+				        GLES30.glReadPixels(0, 0, width, height,
+							GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf);
 //				        if (DEBUG) Log.v(TAG, "save pixels to file:" + captureFile);
-				        Bitmap.CompressFormat compressFormat = Bitmap.CompressFormat.PNG;
-				        if (captureFile.toString().endsWith(".jpg")) {
-				        	compressFormat = Bitmap.CompressFormat.JPEG;
-				        }
-				        BufferedOutputStream os = null;
+						final Bitmap.CompressFormat compressFormat
+							= getCaptureFormat(mCaptureFormat);
 						try {
 					        try {
-					            os = new BufferedOutputStream(new FileOutputStream(captureFile));
-					            final Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+					            final Bitmap bmp = Bitmap.createBitmap(
+					            	width, height, Bitmap.Config.ARGB_8888);
 						        buf.clear();
 					            bmp.copyPixelsFromBuffer(buf);
-					            bmp.compress(compressFormat, captureCompression, os);
+					            bmp.compress(compressFormat, captureCompression, mCaptureStream);
 					            bmp.recycle();
-					            os.flush();
+								mCaptureStream.flush();
 					        } finally {
-					            if (os != null) os.close();
+					            mCaptureStream.close();
 					        }
-						} catch (final FileNotFoundException e) {
-							Log.w(TAG, "failed to save file", e);
 						} catch (final IOException e) {
 							Log.w(TAG, "failed to save file", e);
 						}
+					} else if (isRunning) {
+						Log.w(TAG, "#captureLoopGLES3:unexpectedly width/height is zero");
 					}
-//					if (DEBUG) Log.i(TAG, "静止画撮影終了");
-					captureFile = null;
+					if (DEBUG) Log.i(TAG, "#captureLoopGLES3:静止画撮影終了");
+					mCaptureStream = null;
 					mSync.notifyAll();
 				}	// end of synchronized (mSync)
 			}	// end of for (; isRunning ;)
@@ -1179,9 +1462,6 @@ public abstract class AbstractRendererHolder implements IRendererHolder {
 		private final void release() {
 			if (captureSurface != null) {
 				captureSurface.makeCurrent();
-				if (drawer != null) {
-					drawer.release();
-				}
 				captureSurface.release();
 				captureSurface = null;
 			}

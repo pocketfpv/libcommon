@@ -3,7 +3,7 @@ package com.serenegiant.widget;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,6 @@ public class TimePickerPreference extends DialogPreference {
         		attrs, R.styleable.TimePicker, defStyle, 0);
         mDefaultValue = (long)a.getFloat(R.styleable.TimePicker_TimePickerDefaultValue, -1);
         a.recycle();
-        a = null;
 
         setPositiveButtonText(android.R.string.ok);
 		setNegativeButtonText(android.R.string.cancel);

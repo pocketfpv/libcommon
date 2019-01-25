@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package com.serenegiant.mediaeffect;
 
 import android.graphics.Matrix;
 import android.opengl.GLES20;
+import androidx.annotation.NonNull;
 import android.util.Log;
 
 import com.serenegiant.glutils.GLHelper;
@@ -33,7 +34,9 @@ public class MediaEffectTexProjection extends MediaEffectGLESBase {
 	private static final boolean DEBUG = false;
 	private static final String TAG = "MediaEffectTexProjection";
 
-	private static class MediaEffectTexProjectionDrawer extends MediaEffectDrawer {
+	private static class MediaEffectTexProjectionDrawer
+		extends MediaEffectDrawer.MediaEffectSingleDrawer {
+
 		private float[] texMatrix2 = new float[9];
 		private final int muTexMatrixLoc2;
 
@@ -45,13 +48,15 @@ public class MediaEffectTexProjection extends MediaEffectGLESBase {
 		}
 
 		@Override
-		protected void preDraw(final int tex_id, final float[] tex_matrix, final int offset) {
+		protected void preDraw(@NonNull final int[] tex_ids,
+			final float[] tex_matrix, final int offset) {
+
 			// テクスチャ変換行列をセット
 			if (muTexMatrixLoc2 >= 0) {
 				GLES20.glUniformMatrix3fv(muTexMatrixLoc2, 1, false, texMatrix2, 0);
 				GLHelper.checkGlError("glUniformMatrix3fv");
 			}
-			super.preDraw(tex_id, tex_matrix, offset);
+			super.preDraw(tex_ids, tex_matrix, offset);
 		}
 
 		public void reset() {

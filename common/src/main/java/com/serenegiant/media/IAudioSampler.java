@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,20 @@ package com.serenegiant.media;
  *  limitations under the License.
 */
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import android.annotation.SuppressLint;
-import android.os.SystemClock;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
+import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
 import android.util.Log;
 
 import com.serenegiant.utils.BuildCheck;
@@ -34,6 +40,70 @@ import com.serenegiant.utils.Time;
 public abstract class IAudioSampler {
 //	private static final boolean DEBUG = false;	// FIXME 実働時はfalseにすること
 	private final String TAG = getClass().getSimpleName();
+
+	public static final int AUDIO_SOURCE_UAC = 100;
+	@IntDef({
+		MediaRecorder.AudioSource.DEFAULT,
+		MediaRecorder.AudioSource.MIC,
+		MediaRecorder.AudioSource.CAMCORDER,
+		MediaRecorder.AudioSource.VOICE_RECOGNITION,
+		MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+		AUDIO_SOURCE_UAC,
+	})
+	@Retention(RetentionPolicy.SOURCE)
+	public @interface AudioSource {}
+
+	@SuppressLint("NewApi")
+	public static AudioRecord createAudioRecord(
+		final int source, final int sampling_rate, final int channels, final int format, final int buffer_size) {
+
+		@AudioSource
+		final int[] AUDIO_SOURCES = new int[] {
+			MediaRecorder.AudioSource.DEFAULT,		// ここ(1つ目)は引数で置き換えられる
+			MediaRecorder.AudioSource.CAMCORDER,	// これにするとUSBオーディオルーティングが有効な場合でも内蔵マイクからの音になる
+			MediaRecorder.AudioSource.MIC,
+			MediaRecorder.AudioSource.DEFAULT,
+			MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+			MediaRecorder.AudioSource.VOICE_RECOGNITION,
+		};
+
+		switch (source) {
+		case 1:	AUDIO_SOURCES[0] = MediaRecorder.AudioSource.MIC; break;		// 自動
+		case 2:	AUDIO_SOURCES[0] = MediaRecorder.AudioSource.CAMCORDER; break;	// 内蔵マイク
+		case 3: AUDIO_SOURCES[0] = MediaRecorder.AudioSource.VOICE_COMMUNICATION; break;
+		default:AUDIO_SOURCES[0] = MediaRecorder.AudioSource.MIC; break;		// 自動(UACのopenに失敗した時など)
+		}
+		AudioRecord audioRecord = null;
+		for (final int src: AUDIO_SOURCES) {
+            try {
+            	if (BuildCheck.isAndroid6()) {
+					audioRecord = new AudioRecord.Builder()
+						.setAudioSource(src)
+						.setAudioFormat(new AudioFormat.Builder()
+							.setEncoding(format)
+							.setSampleRate(sampling_rate)
+							.setChannelMask((channels == 1
+								? AudioFormat.CHANNEL_IN_MONO : AudioFormat.CHANNEL_IN_STEREO))
+							.build())
+						.setBufferSizeInBytes(buffer_size)
+						.build();
+				} else {
+					audioRecord = new AudioRecord(src, sampling_rate,
+						(channels == 1 ? AudioFormat.CHANNEL_IN_MONO : AudioFormat.CHANNEL_IN_STEREO),
+						format, buffer_size);
+				}
+				if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
+					audioRecord.release();
+					audioRecord = null;
+				}
+            } catch (final Exception e) {
+            	audioRecord = null;
+            }
+            if (audioRecord != null)
+            	break;
+    	}
+		return audioRecord;
+	}
 
 	/**
 	 * 音声データ取得コールバックインターフェース
@@ -67,13 +137,13 @@ public abstract class IAudioSampler {
 	private final int MAX_QUEUE_SIZE = 200;
 
 	// 音声データキュー用
-	private final LinkedBlockingQueue<AudioData> mPool = new LinkedBlockingQueue<AudioData>(MAX_POOL_SIZE);
-	private final LinkedBlockingQueue<AudioData> mAudioQueue = new LinkedBlockingQueue<AudioData>(MAX_QUEUE_SIZE);
+	private final LinkedBlockingQueue<MediaData> mPool = new LinkedBlockingQueue<MediaData>(MAX_POOL_SIZE);
+	private final LinkedBlockingQueue<MediaData> mAudioQueue = new LinkedBlockingQueue<MediaData>(MAX_QUEUE_SIZE);
 
 	// コールバック用
 	private CallbackThread mCallbackThread;
 	private final Object mCallbackSync = new Object();
-	private final List<SoundSamplerCallback> mCallbacks = new ArrayList<SoundSamplerCallback>();
+	private final Set<SoundSamplerCallback> mCallbacks = new CopyOnWriteArraySet<SoundSamplerCallback>();
 	protected volatile boolean mIsCapturing;
 
 	public IAudioSampler() {
@@ -88,9 +158,7 @@ public abstract class IAudioSampler {
 			stop();
 		}
 //		mIsCapturing = false;	// 念の為に
-		synchronized (mCallbackSync) {
-			mCallbacks.clear();
-		}
+		mCallbacks.clear();
 //		if (DEBUG) Log.v(TAG, "release:finished");
 	}
 
@@ -135,7 +203,7 @@ public abstract class IAudioSampler {
 	 * @param callback
 	 */
 	public void addCallback(final SoundSamplerCallback callback) {
-		synchronized (mCallbackSync) {
+		if (callback != null) {
 			mCallbacks.add(callback);
 		}
 	}
@@ -145,7 +213,7 @@ public abstract class IAudioSampler {
 	 * @param callback
 	 */
 	public void removeCallback(final SoundSamplerCallback callback) {
-		synchronized (mCallbackSync) {
+		if (callback != null) {
 			for (; mCallbacks.remove(callback); );
 		}
 	}
@@ -191,15 +259,19 @@ public abstract class IAudioSampler {
 	 * 音声データ取得時のコールバックを呼び出す
 	 * @param data
 	 */
-	private void callOnData(final AudioData data) {
-		synchronized (mCallbackSync) {
-			for (final SoundSamplerCallback callback: mCallbacks) {
-				try {
-					data.mBuffer.rewind();
-					callback.onData(data.mBuffer, data.size, data.presentationTimeUs);
-				} catch (final Exception e) {
-					Log.w(TAG, "callOnData:", e);
-				}
+	private void callOnData(@NonNull final MediaData data) {
+		final ByteBuffer buf = data.mBuffer;
+		final int size = data.size;
+		final long pts = data.presentationTimeUs;
+		for (final SoundSamplerCallback callback: mCallbacks) {
+			try {
+				buf.clear();
+				buf.position(size);
+				buf.flip();
+				callback.onData(buf, size, pts);
+			} catch (final Exception e) {
+				mCallbacks.remove(callback);
+				Log.w(TAG, "callOnData:", e);
 			}
 		}
     }
@@ -209,13 +281,12 @@ public abstract class IAudioSampler {
 	 * @param e
 	 */
     protected void callOnError(final Exception e) {
-		synchronized (mCallbackSync) {
-			for (final SoundSamplerCallback callback: mCallbacks) {
-				try {
-					callback.onError(e);
-				} catch (final Exception e1) {
-					Log.w(TAG, "callOnError:", e1);
-				}
+		for (final SoundSamplerCallback callback: mCallbacks) {
+			try {
+				callback.onError(e);
+			} catch (final Exception e1) {
+				mCallbacks.remove(callback);
+				Log.w(TAG, "callOnError:", e1);
 			}
 		}
     }
@@ -226,7 +297,7 @@ public abstract class IAudioSampler {
 		mAudioQueue.clear();
 		mPool.clear();
 		for (int i = 0; i < 8; i++) {
-			mPool.add(new AudioData(default_buffer_size));
+			mPool.add(new MediaData(default_buffer_size));
 		}
 	}
 
@@ -239,15 +310,15 @@ public abstract class IAudioSampler {
 	 * プールがからの場合には最大MAX_POOL_SIZE個までは新規生成する
 	 * @return
 	 */
-	protected AudioData obtain() {
+	protected MediaData obtain() {
 //		if (DEBUG) Log.v(TAG, "obtain:" + mPool.size() + ",mBufferNum=" + mBufferNum);
-		AudioData result = null;
+		MediaData result = null;
 		if (!mPool.isEmpty()) {
 			// プールに空バッファが有る時
 			result = mPool.poll();
 		} else if (mBufferNum < MAX_POOL_SIZE) {
-//			if (DEBUG) Log.i(TAG, "create AudioData");
-			result = new AudioData(mDefaultBufferSize);
+//			if (DEBUG) Log.i(TAG, "create MediaData");
+			result = new MediaData(mDefaultBufferSize);
 			mBufferNum++;
 		}
 		if (result != null)
@@ -260,7 +331,7 @@ public abstract class IAudioSampler {
 	 * 使用済みの音声データバッファを再利用するためにプールに戻す
 	 * @param data
 	 */
-	protected void recycle(final AudioData data) {
+	protected void recycle(@NonNull final MediaData data) {
 //		if (DEBUG) Log.v(TAG, "recycle:" + mPool.size());
 		if (!mPool.offer(data)) {
 			// ここには来ないはず
@@ -269,13 +340,13 @@ public abstract class IAudioSampler {
 		}
 	}
 
-	protected void addAudioData(final AudioData data) {
-//		if (DEBUG) Log.v(TAG, "addAudioData:" + mAudioQueue.size());
-		mAudioQueue.offer(data);
+	protected boolean addMediaData(@NonNull final MediaData data) {
+//		if (DEBUG) Log.v(TAG, "addMediaData:" + mAudioQueue.size());
+		return mAudioQueue.offer(data);
 	}
 
-	protected AudioData pollAudioData(final long timout_msec) throws InterruptedException {
-		return mAudioQueue.poll(timout_msec, TimeUnit.MILLISECONDS);
+	protected MediaData pollMediaData(final long timeout_msec) throws InterruptedException {
+		return mAudioQueue.poll(timeout_msec, TimeUnit.MILLISECONDS);
 	}
 
 	/**
@@ -309,10 +380,10 @@ public abstract class IAudioSampler {
     	public final void run() {
 //    		if (DEBUG) Log.i(TAG, "CallbackThread:start");
     		android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO); // THREAD_PRIORITY_URGENT_AUDIO
-			AudioData data;
+			MediaData data;
     		for (; mIsCapturing ;) {
     			try {
-					data = pollAudioData(100);
+					data = pollMediaData(100);
 				} catch (final InterruptedException e) {
 					break;
 				}

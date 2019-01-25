@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ public final class VideoEncoder extends AbstractVideoEncoder {
 	static {
 		if (!isLoaded) {
 			System.loadLibrary("c++_shared");
-			System.loadLibrary("jpeg-turbo1500");
+			System.loadLibrary("jpeg-turbo2000");
 			System.loadLibrary("png16");
 			System.loadLibrary("common");
 			System.loadLibrary("mediaencoder");
@@ -50,9 +50,10 @@ public final class VideoEncoder extends AbstractVideoEncoder {
     //
 //	private final WeakReference<AbstractUVCCamera>mCamera;
     private final boolean mAlign16;
+    private int mColorFormat;
 
-	public VideoEncoder(final Recorder recorder, final EncoderListener listener, /*final AbstractUVCCamera camera,*/ final boolean align16) {
-		super(MIME_AVC, recorder, listener);
+	public VideoEncoder(final Recorder recorder, final EncoderListener listener, final boolean align16) {
+		super(MediaCodecHelper.MIME_VIDEO_AVC, recorder, listener);
 //		if (DEBUG) Log.i(TAG, "コンストラクタ:");
 		mAlign16 = align16;
 //		mCamera = new WeakReference<AbstractUVCCamera>(camera);
@@ -67,9 +68,9 @@ public final class VideoEncoder extends AbstractVideoEncoder {
         mIsCapturing = true;
         mIsEOS = false;
 
-        final MediaCodecInfo codecInfo = selectVideoCodec(MIME_AVC);
+        final MediaCodecInfo codecInfo = MediaCodecHelper.selectVideoEncoder(MediaCodecHelper.MIME_VIDEO_AVC);
         if (codecInfo == null) {
-			Log.e(TAG, "Unable to find an appropriate codec for " + MIME_AVC);
+			Log.e(TAG, "Unable to find an appropriate codec for " + MediaCodecHelper.MIME_VIDEO_AVC);
             return true;
         }
 //		if (DEBUG) Log.i(TAG, "selected codec: " + codecInfo.getName());
@@ -82,20 +83,24 @@ public final class VideoEncoder extends AbstractVideoEncoder {
         	= ((mWidth >= 1000) || (mHeight >= 1000));
 //        	&& checkProfileLevel(VIDEO_MIME_TYPE, codecInfo);	// SC-06DでCodecInfo#getCapabilitiesForTypeが返ってこない/凄い時間がかかるのでコメントアウト
 
-        final MediaFormat format = MediaFormat.createVideoFormat(MIME_AVC, mWidth, mHeight);
+        final MediaFormat format = MediaFormat.createVideoFormat(MediaCodecHelper.MIME_VIDEO_AVC, mWidth, mHeight);
 
+		mColorFormat = MediaCodecHelper.selectColorFormat(codecInfo, MediaCodecHelper.MIME_VIDEO_AVC);
         // MediaCodecに適用するパラメータを設定する。
         // 誤った設定をするとMediaCodec#configureが復帰不可能な例外を生成する
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, mColorFormat);	// API >= 16
-		format.setInteger(MediaFormat.KEY_BIT_RATE, mBitRate > 0 ? mBitRate : VideoConfig.getBitrate(mWidth, mHeight));
-		format.setInteger(MediaFormat.KEY_FRAME_RATE, mFramerate > 0 ? mFramerate : VideoConfig.getCaptureFps());
-		format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, mIFrameIntervals > 0 ? mIFrameIntervals : VideoConfig.getIFrame());
+		format.setInteger(MediaFormat.KEY_BIT_RATE, mBitRate > 0
+			? mBitRate : VideoConfig.getBitrate(mWidth, mHeight));
+		format.setInteger(MediaFormat.KEY_FRAME_RATE, mFramerate > 0
+			? mFramerate : VideoConfig.getCaptureFps());
+		format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, mIFrameIntervals > 0
+			? mIFrameIntervals : VideoConfig.getIFrame());
 //		format.setInteger(MediaFormat.KEY_WIDTH, currentConfig.width);
 //		format.setInteger(MediaFormat.KEY_HEIGHT, currentConfig.height);
 		Log.d(TAG, "format: " + format);
 
         // 設定したフォーマットに従ってMediaCodecのエンコーダーを生成する
-        mMediaCodec = MediaCodec.createEncoderByType(MIME_AVC);
+        mMediaCodec = MediaCodec.createEncoderByType(MediaCodecHelper.MIME_VIDEO_AVC);
         mMediaCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         mMediaCodec.start();
 //		if (DEBUG) Log.v(TAG, "MediaCodec start");
@@ -104,7 +109,8 @@ public final class VideoEncoder extends AbstractVideoEncoder {
         	if ((mWidth / 16) * 16 != mWidth) mWidth = ((mWidth / 16) + 1) * 16;
         	if ((mHeight / 16) * 16 != mHeight) mHeight = ((mHeight / 16) + 1) * 16;
         }
-		nativePrepare(mNativePtr, mWidth, mHeight, mColorFormat);
+		nativePrepare(mNativePtr, mWidth, mHeight,
+			MediaCodecHelper.selectColorFormat(codecInfo, MediaCodecHelper.MIME_VIDEO_AVC));
 //		if (DEBUG) Log.i(TAG, String.format("request(%d,%d),align(%d,%d)", EncoderConfig.currentConfig.width, EncoderConfig.currentConfig.height, width, height));
 		// native側でMediaCodecへ書き込むための設定
 		// 先にコーデックへの入力を開始しないとdrainが回らない
@@ -146,7 +152,9 @@ public final class VideoEncoder extends AbstractVideoEncoder {
 	 * コーデックからの出力フォーマットを取得してnative側へ引き渡してMuxerをスタートさせる
 	 */
 	@Override
-	public synchronized boolean startRecorder(final IRecorder recorder, final MediaFormat outFormat) {
+	protected synchronized boolean startRecorder(final IRecorder recorder,
+		final MediaFormat outFormat) {
+	
 //		if (DEBUG) Log.i(TAG, "startRecorder:outFormat=" + outFormat);
         // MediaCodecがセットした実際の高さ・幅に調整し直す
 		int w, h;
@@ -171,7 +179,7 @@ public final class VideoEncoder extends AbstractVideoEncoder {
 	}
 
 	@Override
-	public void stopRecorder(final IRecorder recorder) {
+	protected void stopRecorder(final IRecorder recorder) {
 		if (mRecorderStarted) {
 /*			final AbstractUVCCamera camera = mCamera.get();
 			if (camera != null) {

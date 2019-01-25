@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,13 +23,15 @@ import android.annotation.TargetApi;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.os.Build;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import android.util.Log;
 
 import com.serenegiant.utils.BufferHelper;
 import com.serenegiant.utils.BuildCheck;
 import com.serenegiant.utils.MediaInfo;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @SuppressWarnings("deprecation")
@@ -37,7 +39,8 @@ import java.util.List;
 public class MediaCodecHelper {
 	private static final String TAG = MediaCodecHelper.class.getSimpleName();
 
-	public static final String MIME_AVC = "video/avc";
+	public static final String MIME_VIDEO_AVC = "video/avc";		// h.264
+	public static final String MIME_AUDIO_AAC = "audio/mp4a-latm";	// AAC
 	@SuppressWarnings("deprecation")
 	@SuppressLint("InlinedApi")
 	public static final int BUFFER_FLAG_KEY_FRAME
@@ -144,10 +147,23 @@ public class MediaCodecHelper {
 	public static final int OMX_COLOR_FormatMax = 0x7FFFFFFF;
 
 	/**
+	 * 指定したMIMEに一致する最初の動画エンコード用コーデックを選択する
+	 * もし使用可能なのがなければnullを返す
+	 * @param mimeType
+	 */
+	@Deprecated
+	@Nullable
+	public static MediaCodecInfo selectVideoCodec(final String mimeType) {
+		return selectVideoEncoder(mimeType);
+	}
+
+	/**
 	 * 指定したMIMEで使用可能がcodecの一覧の中から先頭のものを取得する
 	 * もし使用可能なのがなければnullを返す
+	 * @param mimeType
 	 */
-	public static MediaCodecInfo selectVideoCodec(final String mimeType) {
+	@Nullable
+	public static MediaCodecInfo selectVideoEncoder(final String mimeType) {
 		// コーデックの一覧を取得
 		final int numCodecs = getCodecCount();
 		for (int i = 0; i < numCodecs; i++) {
@@ -193,6 +209,60 @@ public class MediaCodecHelper {
 			}
 		}
 		return null;
+	}
+	
+	/**
+	 * 指定したmimeに対応するビデオコーデックのエンコーダー一覧を取得する
+	 * @param mimeType
+	 * @return
+	 */
+	@NonNull
+	public static List<MediaCodecInfo> getVideoEncoderInfos(final String mimeType) {
+		final List<MediaCodecInfo> result = new ArrayList<>();
+		// コーデックの一覧を取得
+		final int numCodecs = getCodecCount();
+		for (int i = 0; i < numCodecs; i++) {
+			final MediaCodecInfo codecInfo = getCodecInfoAt(i);
+
+			if (!codecInfo.isEncoder()) {	// エンコーダーでない(=デコーダー)はスキップする
+				continue;
+			}
+			// エンコーダーの一覧からMIMEが一致してカラーフォーマットが使用可能なものを選択する
+/*			// こっちの方法で選択すると
+			// W/OMXCodec(20608): Failed to set standard component role 'video_encoder.avc'.
+			// って表示されて、OMX.Nvidia.mp4.encoder
+			// が選択される
+			final MediaCodecInfo.CodecCapabilities caps;
+			Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
+			try {
+				caps = getCodecCapabilities(codecInfo, mimeType);
+			} finally {
+				Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
+			}
+			final int[] colorFormats = caps.colorFormats;
+			final int n = colorFormats != null ? colorFormats.length : 0;
+			int colorFormat;
+			for (int j = 0; j < n; j++) {
+				colorFormat = colorFormats[j];
+				if (isRecognizedVideoFormat(colorFormat)) {
+					result.add(codecInfo);
+				}
+			} */
+// こっちで選択すると、xxx.h264.encoderが選択される
+			final String[] types = codecInfo.getSupportedTypes();
+			final int n = types.length;
+			int format;
+			for (int j = 0; j < n; j++) {
+				if (types[j].equalsIgnoreCase(mimeType)) {
+//                	if (DEBUG) Log.i(TAG, "codec:" + codecInfo.getName() + ",MIME=" + types[j]);
+					format = selectColorFormat(codecInfo, mimeType);
+					if (format > 0) {
+						result.add(codecInfo);
+					}
+				}
+			}
+		}
+		return result;
 	}
 
 	/**
@@ -246,7 +316,15 @@ public class MediaCodecHelper {
 	/**
 	 * コーデックの一覧をログに出力する
 	 */
+	@Deprecated
 	public static final void dumpVideoCodecEncoders() {
+		dumpEncoders();
+	}
+
+	/**
+	 * エンコード用コーデックの一覧をログに出力する
+	 */
+	public static final void dumpEncoders() {
     	// コーデックの一覧を取得
         final int numCodecs = getCodecCount();
         for (int i = 0; i < numCodecs; i++) {
@@ -255,7 +333,29 @@ public class MediaCodecHelper {
             if (!codecInfo.isEncoder()) {	// エンコーダーでない(デコーダー)はとばす
                 continue;
             }
-            // エンコーダーの一覧からMIMEが一致するものを選択する
+			// コーデックの一覧を出力する
+            final String[] types = codecInfo.getSupportedTypes();
+            for (int j = 0; j < types.length; j++) {
+            	Log.i(TAG, "codec:" + codecInfo.getName() + ",MIME:" + types[j]);
+            	// カラーフォーマットを出力する
+            	selectColorFormat(codecInfo, types[j]);
+            }
+        }
+    }
+
+	/**
+	 * デコード用コーデックの一覧をログに出力する
+	 */
+	public static final void dumpDecoders() {
+    	// コーデックの一覧を取得
+        final int numCodecs = getCodecCount();
+        for (int i = 0; i < numCodecs; i++) {
+        	final MediaCodecInfo codecInfo = getCodecInfoAt(i);	// API >= 16
+
+            if (codecInfo.isEncoder()) {	// エンコーダーはとばす
+                continue;
+            }
+            // コーデックの一覧を出力する
             final String[] types = codecInfo.getSupportedTypes();
             for (int j = 0; j < types.length; j++) {
             	Log.i(TAG, "codec:" + codecInfo.getName() + ",MIME:" + types[j]);
@@ -286,11 +386,24 @@ public class MediaCodecHelper {
 
 //================================================================================
 	/**
-	 * 指定したMIMEに一致する最初のコーデックを選択する
+	 * 指定したMIMEに一致する最初の音声エンコード用コーデックを選択する
 	 * @param mimeType
-	* @return
+	 * @return
 	 */
-	private static final MediaCodecInfo selectAudioCodec(final String mimeType) {
+	@Deprecated
+	@Nullable
+	public static final MediaCodecInfo selectAudioCodec(final String mimeType) {
+		return selectAudioEncoder(mimeType);
+	}
+	
+	/**
+	 * 指定したMIMEに一致する最初の音声エンコード用コーデックを選択する
+	 * 対応するものがなければnullを返す
+	 * @param mimeType
+	 * @return
+	 */
+	@Nullable
+	public static final MediaCodecInfo selectAudioEncoder(final String mimeType) {
 //    	if (DEBUG) Log.v(TAG, "selectAudioCodec:");
 
  		MediaCodecInfo result = null;
@@ -313,6 +426,32 @@ LOOP:	for (int i = 0; i < numCodecs; i++) {
 		return result;
 	}
 
+	/**
+	 * 指定したmimeに対応する音声コーデックのエンコーダー一覧を取得する
+	 * @param mimeType
+	 * @return
+	 */
+	@NonNull
+	public static List<MediaCodecInfo> getAudioEncoderInfos(final String mimeType) {
+		final List<MediaCodecInfo> result = new ArrayList<>();
+		
+		// コーデックの一覧を取得
+		final int numCodecs = getCodecCount();
+LOOP:	for (int i = 0; i < numCodecs; i++) {
+			final MediaCodecInfo codecInfo = getCodecInfoAt(i);
+			if (!codecInfo.isEncoder()) {	// エンコーダーでない(=デコーダー)はスキップする
+				continue;
+			}
+			final String[] types = codecInfo.getSupportedTypes();
+			for (int j = 0; j < types.length; j++) {
+//				if (DEBUG) Log.i(TAG, "supportedType:" + codecInfo.getName() + ",MIME=" + types[j]);
+				if (types[j].equalsIgnoreCase(mimeType)) {
+					result.add(codecInfo);
+				}
+			}
+		}
+		return result;
+	}
 //================================================================================
 	public static final int getCodecCount() {
 		return MediaInfo.getCodecCount();
@@ -326,7 +465,9 @@ LOOP:	for (int i = 0; i < numCodecs; i++) {
 		return MediaInfo.getCodecInfoAt(ix);
 	}
 
-	public static MediaCodecInfo.CodecCapabilities getCodecCapabilities(final MediaCodecInfo codecInfo, final String mimeType) {
+	public static MediaCodecInfo.CodecCapabilities getCodecCapabilities(
+		final MediaCodecInfo codecInfo, final String mimeType) {
+
 		return MediaInfo.getCodecCapabilities(codecInfo, mimeType);
 	}
 
@@ -336,7 +477,9 @@ LOOP:	for (int i = 0; i < numCodecs; i++) {
 	 * @param info
 	 * @return
 	 */
-	public static boolean checkProfileLevel(final String mimeType, final MediaCodecInfo info) {
+	public static boolean checkProfileLevel(final String mimeType,
+		final MediaCodecInfo info) {
+
 		if (info != null) {
 			if (mimeType.equalsIgnoreCase("video/avc")) {
 				final MediaCodecInfo.CodecCapabilities caps = getCodecCapabilities(info, mimeType);
@@ -356,7 +499,9 @@ LOOP:	for (int i = 0; i < numCodecs; i++) {
 	 * @param profileLevel
 	 * @return
 	 */
-	public static String getProfileLevelString(final String mimeType, final MediaCodecInfo.CodecProfileLevel profileLevel) {
+	public static String getProfileLevelString(final String mimeType,
+		final MediaCodecInfo.CodecProfileLevel profileLevel) {
+
 		String result = null;
 		if (mimeType.equalsIgnoreCase("video/avc")) {
 			switch (profileLevel.profile) {
@@ -478,7 +623,7 @@ LOOP:	for (int i = 0; i < numCodecs; i++) {
 			default:
 				result = result + ",level=unknown " + profileLevel.level; break;
 			}
-		} else if (mimeType.equalsIgnoreCase("ausio/aac")) {
+		} else if (mimeType.equalsIgnoreCase("audio/aac")) {
 			// from OMX_AUDIO_AACPROFILETYPE
 			switch (profileLevel.level) {
 			case MediaCodecInfo.CodecProfileLevel.AACObjectMain:		// 1;

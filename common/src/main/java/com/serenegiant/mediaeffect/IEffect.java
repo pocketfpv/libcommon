@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,15 @@ package com.serenegiant.mediaeffect;
  *  limitations under the License.
 */
 
+import androidx.annotation.NonNull;
+
+import com.serenegiant.glutils.TextureOffscreen;
+
 public interface IEffect {
-	public void apply(int[] src_tex_ids, int width, int height, int out_tex_id);
+	public void apply(@NonNull final int[] src_tex_ids,
+		final int width, final int height, final int out_tex_id);
+	public void apply(@NonNull final int[] src_tex_ids,
+		@NonNull final TextureOffscreen output);
 	public void apply(ISource src);
 	public void release();
 	public IEffect resize(final int width, final int height);

@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,12 @@ import android.annotation.TargetApi;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.os.Build;
-import android.support.annotation.NonNull;
+import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
 import android.util.Log;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -38,14 +41,21 @@ public abstract class MediaReaper implements Runnable {
 	public static final int REAPER_VIDEO = 0;
 	public static final int REAPER_AUDIO = 1;
 
+	@IntDef({REAPER_VIDEO,
+		REAPER_AUDIO,
+	})
+	@Retention(RetentionPolicy.SOURCE)
+	@interface ReaperType {}
+
 	public static final int TIMEOUT_USEC = 10000;	// 10ミリ秒
 
 	public interface ReaperListener {
-		public void writeSampleData(final int reaperType,
+		public void writeSampleData(@NonNull final MediaReaper reaper,
 			final ByteBuffer byteBuf, final MediaCodec.BufferInfo bufferInfo);
-		public void onOutputFormatChanged(final MediaFormat format);
-		public void onStop();
-		public void onError(final Exception e);
+		public void onOutputFormatChanged(@NonNull final MediaReaper reaper,
+			@NonNull final MediaFormat format);
+		public void onStop(@NonNull final MediaReaper reaper);
+		public void onError(@NonNull final MediaReaper reaper, final Exception e);
 	}
 
 	public static class VideoReaper extends MediaReaper {
@@ -89,9 +99,42 @@ public abstract class MediaReaper implements Runnable {
 		}
 	}
 
+	public static class AudioReaper extends MediaReaper {
+		private static final String MIME_TYPE = "audio/mp4a-latm";
+		
+		private final int mSampleRate;
+		private final int mChannelCount;
+		
+		public AudioReaper(final MediaCodec encoder, @NonNull final ReaperListener listener,
+			final int sampleRate, final int channelCount) {
+
+			super(REAPER_AUDIO, encoder, listener);
+			mSampleRate = sampleRate;
+			mChannelCount = channelCount;
+		}
+		
+		@Override
+		protected MediaFormat createOutputFormat(final byte[] csd, final int size,
+			final int ix0, final int ix1, final int ix2) {
+
+			MediaFormat outFormat;
+	        if (ix0 >= 0) {
+	//        	Log.w(TAG, "csd may be wrong, it may be for video");
+	        }
+	        // audioの時はSTART_MARKが無いので全体をコピーして渡す
+	        outFormat = MediaFormat.createAudioFormat(MIME_TYPE, mSampleRate, mChannelCount);
+	        final ByteBuffer csd0 = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder());
+	        csd0.put(csd, 0, size);
+	        csd0.flip();
+	        outFormat.setByteBuffer("csd-0", csd0);
+	        return outFormat;
+		}
+	}
+	
 	private final Object mSync = new Object();
 	private final WeakReference<MediaCodec> mWeakEncoder;
 	private final ReaperListener mListener;
+	@ReaperType
 	private final int mReaperType;
 	/**
 	 * エンコード用バッファ
@@ -104,13 +147,13 @@ public abstract class MediaReaper implements Runnable {
 	private volatile boolean mIsEOS;
 
 
-	public MediaReaper(final int trackIndex,
+	public MediaReaper(@ReaperType final int reaperType,
 		final MediaCodec encoder, @NonNull final ReaperListener listener) {
 
 		if (DEBUG) Log.v(TAG, "コンストラクタ:");
 		mWeakEncoder = new WeakReference<MediaCodec>(encoder);
 		mListener = listener;
-		mReaperType = trackIndex;
+		mReaperType = reaperType;
 		mBufferInfo = new MediaCodec.BufferInfo();
 		synchronized (mSync) {
 			// Reaperスレッドを生成
@@ -151,6 +194,11 @@ public abstract class MediaReaper implements Runnable {
         }
     }
 
+	@ReaperType
+	public int reaperType() {
+		return mReaperType;
+	}
+	
 	@Override
 	public void run() {
 		android.os.Process.setThreadPriority(
@@ -276,7 +324,7 @@ LOOP:	for ( ; mIsRunning ; ) {
                     try {
 	                   	mBufferInfo.presentationTimeUs
 	                   		= getNextOutputPTSUs(mBufferInfo.presentationTimeUs);
-	                   	mListener.writeSampleData(mReaperType, encodedData, mBufferInfo);
+	                   	mListener.writeSampleData(MediaReaper.this, encodedData, mBufferInfo);
                     } catch (final TimeoutException e) {
 //						if (DEBUG) Log.v(TAG, "最大録画時間を超えた", e);
 						callOnError(e);
@@ -302,7 +350,7 @@ LOOP:	for ( ; mIsRunning ; ) {
 
 	private boolean callOnFormatChanged(final MediaFormat format) {
 		try {
-			mListener.onOutputFormatChanged(format);
+			mListener.onOutputFormatChanged(this, format);
 			mRecorderStarted = true;
 			return true;
 		} catch (final Exception e) {
@@ -313,7 +361,7 @@ LOOP:	for ( ; mIsRunning ; ) {
 
 	private void callOnStop() {
 		try {
-			mListener.onStop();
+			mListener.onStop(this);
 		} catch (final Exception e) {
 			callOnError(e);
 		}
@@ -321,7 +369,7 @@ LOOP:	for ( ; mIsRunning ; ) {
 
 	private void callOnError(final Exception e) {
 		try {
-			mListener.onError(e);
+			mListener.onError(this, e);
 		} catch (final Exception e1) {
 			Log.w(TAG, e1);
 		}

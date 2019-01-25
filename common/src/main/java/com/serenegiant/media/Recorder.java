@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,27 @@ package com.serenegiant.media;
  *  limitations under the License.
 */
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 
+import android.annotation.SuppressLint;
+import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
+import android.media.MediaMuxer;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.os.ParcelFileDescriptor;
+import androidx.annotation.NonNull;
+import androidx.documentfile.provider.DocumentFile;
 import android.util.Log;
 import android.view.Surface;
+
+import com.serenegiant.utils.BuildCheck;
+import com.serenegiant.utils.UriHelper;
 
 public abstract class Recorder implements IRecorder {
 //	private static final boolean DEBUG = false;	// FIXME 実働時はfalseにすること
@@ -47,6 +58,7 @@ public abstract class Recorder implements IRecorder {
     // エンコーダー自体のスレッドで遅延メッセージを送ると30秒のつもりが46秒とか掛かっちゃうから
     private EosHandler mEosHandler;
     protected long mStartTime;
+    private volatile boolean mReleased;
 
 	/**
 	 * コンストラクタ
@@ -63,10 +75,12 @@ public abstract class Recorder implements IRecorder {
 	 */
 	@Override
 	public void setMuxer(final IMuxer muxer) {
-		mMuxer = muxer;
-		mEncoderCount = mStartedCount = 0;
-		synchronized(this) {
-			mState = STATE_INITIALIZED;
+		if (!mReleased) {
+			mMuxer = muxer;
+			mEncoderCount = mStartedCount = 0;
+			synchronized(this) {
+				mState = STATE_INITIALIZED;
+			}
 		}
 	}
 
@@ -83,8 +97,12 @@ public abstract class Recorder implements IRecorder {
 	public void prepare() {
 //		if (DEBUG) Log.v(TAG, "prepare:");
 		synchronized(this) {
-			if (mState != STATE_INITIALIZED)
+			if (mReleased) {
+				throw new IllegalStateException("already released");
+			}
+			if (mState != STATE_INITIALIZED) {
 				throw new IllegalStateException("prepare:state=" + mState);
+			}
 		}
 		try {
 			if (mVideoEncoder != null)
@@ -105,8 +123,12 @@ public abstract class Recorder implements IRecorder {
 	public void startRecording() throws IllegalStateException {
 //		if (DEBUG) Log.v(TAG, "start:state=" + mState);
 		synchronized(this) {
-			if (mState != STATE_PREPARED)
+			if (mReleased) {
+				throw new IllegalStateException("already released");
+			}
+			if (mState != STATE_PREPARED) {
 				throw new IllegalStateException("start:not prepared");
+			}
 			mState = STATE_STARTING;
 		}
 //		if (DEBUG) Log.v(TAG, "call encoder#start");
@@ -163,12 +185,13 @@ public abstract class Recorder implements IRecorder {
 
 	@Override
 	public synchronized boolean isStarted() {
-		return mState == STATE_STARTED;
+		return !mReleased && (mState == STATE_STARTED);
 	}
 
 	@Override
 	public synchronized boolean isReady() {
-		return mState == STATE_STARTED || mState == STATE_PREPARED;
+		return !mReleased
+			&& (mState == STATE_STARTED || mState == STATE_PREPARED);
 	}
 
 	@Override
@@ -179,6 +202,10 @@ public abstract class Recorder implements IRecorder {
 	@Override
 	public synchronized boolean isStopped() {
 		return mState <= STATE_INITIALIZED;
+	}
+
+	public boolean isReleased() {
+		return mReleased;
 	}
 
 	@Override
@@ -193,24 +220,28 @@ public abstract class Recorder implements IRecorder {
 
 	@Override
 	public void frameAvailableSoon() {
-		if (mVideoEncoder != null)
+		if (mVideoEncoder != null) {
 			mVideoEncoder.frameAvailableSoon();
+		}
 	}
 
 	@Override
 	public void release() {
-		if (mAudioEncoder != null) {
-			mAudioEncoder.release();
-			mAudioEncoder = null;
+		if (!mReleased) {
+			mReleased = true;
+			if (mAudioEncoder != null) {
+				mAudioEncoder.release();
+			}
+			if (mVideoEncoder != null) {
+				mVideoEncoder.release();
+			}
+			if (mMuxer != null) {
+				mMuxer.release();
+			}
 		}
-		if (mVideoEncoder != null) {
-			mVideoEncoder.release();
-			mVideoEncoder = null;
-		}
-		if (mMuxer != null) {
-			mMuxer.release();
-			mMuxer = null;
-		}
+		mAudioEncoder = null;
+		mVideoEncoder = null;
+		mMuxer = null;
 	}
 //================================================================================
 	/**
@@ -224,8 +255,12 @@ public abstract class Recorder implements IRecorder {
 //		if (DEBUG) Log.v(TAG, "addEncoder:encoder=" + encoder);
 		// ここの例外に引っかかるのはプログラムミス
 		synchronized (this) {
-			if (mState > STATE_INITIALIZED)
+			if (mReleased) {
+				throw new IllegalStateException("already released");
+			}
+			if (mState > STATE_INITIALIZED) {
 				throw new IllegalStateException("addEncoder already prepared/started");
+			}
 		}
 		if (encoder instanceof IAudioEncoder) {
 			if (mAudioEncoder != null)
@@ -268,8 +303,12 @@ public abstract class Recorder implements IRecorder {
 	@Override
 	public synchronized boolean start(final Encoder encoder) {
 //		if (DEBUG) Log.v(TAG,  "start:mEncoderCount=" + mEncoderCount + ",mStartedCount=" + mStartedCount);
-		if (mState != STATE_STARTING)
+		if (mReleased) {
+			throw new IllegalStateException("already released");
+		}
+		if (mState != STATE_STARTING) {
 			throw new IllegalStateException("muxer has not prepared:state=");
+		}
 		if (encoder.equals(mVideoEncoder)) {
 			mVideoStarted = true;
 		} else if (encoder.equals(mAudioEncoder)) {
@@ -341,8 +380,12 @@ public abstract class Recorder implements IRecorder {
 //		if (DEBUG) Log.i(TAG, "addTrack:");
 		int trackIx;
 		try {
-			if (mState != STATE_STARTING)
+			if (mReleased) {
+				throw new IllegalStateException("already released");
+			}
+			if (mState != STATE_STARTING) {
 				throw new IllegalStateException("muxer not ready:state=" + mState);
+			}
 			trackIx = mMuxer.addTrack(format);
 		} catch (final Exception e) {
 			Log.w(TAG, "addTrack:", e);
@@ -360,13 +403,16 @@ public abstract class Recorder implements IRecorder {
 	 * @param bufferInfo
 	 */
 	@Override
-	public void writeSampleData(final int trackIndex, final ByteBuffer byteBuf, final MediaCodec.BufferInfo bufferInfo) {
+	public void writeSampleData(final int trackIndex,
+		final ByteBuffer byteBuf, final MediaCodec.BufferInfo bufferInfo) {
+
 		try {
-			if (mStartedCount > 0) {
+			if (!mReleased && (mStartedCount > 0)) {
 				mMuxer.writeSampleData(trackIndex, byteBuf, bufferInfo);
 			}
 		} catch (final Exception e) {
 //			if (DEBUG) Log.w(TAG, "writeSampleData:", e);
+			callOnError(e);
 		}
 	}
 
@@ -403,11 +449,13 @@ public abstract class Recorder implements IRecorder {
 
 	protected void callOnError(final Exception e) {
 //		if (DEBUG) Log.v(TAG, "callOnError:");
-		if (mCallback != null)
-		try {
-			mCallback.onError(e);
-		} catch (final Exception e1) {
-			Log.e(TAG, "onError:", e);
+		if (!mReleased) {
+			if (mCallback != null)
+			try {
+				mCallback.onError(e);
+			} catch (final Exception e1) {
+				Log.e(TAG, "onError:", e);
+			}
 		}
 	}
 
@@ -562,4 +610,60 @@ public abstract class Recorder implements IRecorder {
 	    }
 	}
 
+	protected static IMuxer createMuxer(final String output_oath) throws IOException {
+		IMuxer result;
+		if (VideoConfig.sUseMediaMuxer) {
+			result = new MediaMuxerWrapper(output_oath,
+				MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+		} else {
+			result = new VideoMuxer(output_oath);
+		}
+		return result;
+	}
+
+	@SuppressLint("NewApi")
+	protected static IMuxer createMuxer(final int fd) throws IOException {
+		IMuxer result;
+		if (VideoConfig.sUseMediaMuxer) {
+			if (BuildCheck.isOreo()) {
+				final ParcelFileDescriptor pfd = ParcelFileDescriptor.fromFd(fd);
+				result = new MediaMuxerWrapper(pfd.getFileDescriptor(),
+					MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+			} else {
+				throw new RuntimeException("createMuxer from fd does not support now");
+			}
+		} else {
+			result = new VideoMuxer(fd);
+		}
+		return result;
+	}
+
+	@SuppressLint("NewApi")
+	protected static IMuxer createMuxer(@NonNull final Context context,
+		@NonNull final DocumentFile file) throws IOException {
+
+		IMuxer result = null;
+		if (VideoConfig.sUseMediaMuxer) {
+			if (BuildCheck.isOreo()) {
+				result = new MediaMuxerWrapper(context.getContentResolver()
+					.openFileDescriptor(file.getUri(), "rw").getFileDescriptor(),
+					MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+			} else {
+				final String path = UriHelper.getPath(context, file.getUri());
+				final File f = new File(UriHelper.getPath(context, file.getUri()));
+				if (/*!f.exists() &&*/ f.canWrite()) {
+					// 書き込めるファイルパスを取得できればそれを使う
+					result = new MediaMuxerWrapper(path,
+						MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+				} else {
+					Log.w(TAG, "cant't write to the file, try to use VideoMuxer instead");
+				}
+			}
+		}
+		if (result == null) {
+			result = new VideoMuxer(context.getContentResolver()
+				.openFileDescriptor(file.getUri(), "rw").getFd());
+		}
+		return result;
+	}
 }

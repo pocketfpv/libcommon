@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ package com.serenegiant.utils;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 public class HandlerThreadHandler extends Handler {
 	private static final String TAG = "HandlerThreadHandler";
@@ -35,21 +37,21 @@ public class HandlerThreadHandler extends Handler {
 		return new HandlerThreadHandler(thread.getLooper());
 	}
 
-	public static final HandlerThreadHandler createHandler(final Callback callback) {
+	public static final HandlerThreadHandler createHandler(@Nullable final Callback callback) {
 		return createHandler(TAG, callback);
 	}
 
-	public static final HandlerThreadHandler createHandler(final String name, final Callback callback) {
+	public static final HandlerThreadHandler createHandler(final String name, @Nullable final Callback callback) {
 		final HandlerThread thread = new HandlerThread(name);
 		thread.start();
 		return new HandlerThreadHandler(thread.getLooper(), callback);
 	}
 
-	private HandlerThreadHandler(final Looper looper) {
+	private HandlerThreadHandler(@NonNull final Looper looper) {
 		super(looper);
 	}
 
-	private HandlerThreadHandler(final Looper looper, final Callback callback) {
+	private HandlerThreadHandler(@NonNull final Looper looper, @Nullable final Callback callback) {
 		super(looper, callback);
 	}
 

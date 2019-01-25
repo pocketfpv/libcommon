@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,9 @@ public class MediaEffectSaturate extends MediaEffect {
 	 * GLコンテキスト内で生成すること
 	 *
 	 * @param effect_context
-	 * @param scale The scale of color saturation. between -1 and 1. 0 means no change, while -1 indicates full desaturation, i.e. grayscale.
+	 * @param scale The scale of color saturation.
+	 * 			between -1 and 1. 0 means no change,
+	 * 			while -1 indicates full desaturation, i.e. grayscale.
 	 */
 	public MediaEffectSaturate(final EffectContext effect_context, final float scale) {
 		super(effect_context, EffectFactory.EFFECT_SATURATE);
@@ -35,7 +37,9 @@ public class MediaEffectSaturate extends MediaEffect {
 	}
 
 	/**
-	 * @param saturation The scale of color saturation. between -1 and 1. 0 means no change, while -1 indicates full desaturation, i.e. grayscale.
+	 * @param saturation The scale of color saturation.
+	 * 			between -1 and 1. 0 means no change,
+	 * 			while -1 indicates full desaturation, i.e. grayscale.
 	 * @return
 	 */
 	public MediaEffectSaturate setParameter(final float saturation) {

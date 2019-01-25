@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import android.annotation.TargetApi;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.os.Build;
+import androidx.annotation.NonNull;
 
 /**
  * MediaMuxerがAPI>=18でしか使えないので、localに移植
@@ -44,7 +45,7 @@ public final class VideoMuxer implements IMuxer {
 	static {
 		if (!isLoaded) {
 			System.loadLibrary("c++_shared");
-			System.loadLibrary("jpeg-turbo1500");
+			System.loadLibrary("jpeg-turbo2000");
 			System.loadLibrary("png16");
 			System.loadLibrary("common");
 			System.loadLibrary("mediaencoder");
@@ -86,7 +87,7 @@ public final class VideoMuxer implements IMuxer {
 	private int mLastTrackIndex = -1;
 	@SuppressLint("InlinedApi")
 	@Override
-	public int addTrack(final MediaFormat format) {
+	public int addTrack(@NonNull final MediaFormat format) {
         if (format == null) {
             throw new IllegalArgumentException("format must not be null.");
         }
@@ -164,7 +165,9 @@ public final class VideoMuxer implements IMuxer {
  	}
 
 	@Override
-	public void writeSampleData(final int trackIndex, final ByteBuffer buf, final MediaCodec.BufferInfo bufferInfo) {
+	public void writeSampleData(final int trackIndex,
+		@NonNull final ByteBuffer buf, @NonNull final MediaCodec.BufferInfo bufferInfo) {
+
 		int res = 1;
 		if (!mReleased && (mNativePtr != 0)) {
 			res = nativeWriteSampleData(mNativePtr, trackIndex, buf,
@@ -187,10 +190,13 @@ public final class VideoMuxer implements IMuxer {
 	private final native long nativeCreateFromFD(final int fd);
 	private final native void nativeDestroy(final long id_encoder);
 
-	private static final native int nativeAddTrack(final long id_muxer, final String[] keys, final Object[] values);
+	private static final native int nativeAddTrack(final long id_muxer,
+		final String[] keys, final Object[] values);
 	private static final native int nativeStart(final long id_muxer);
 	private static final native int nativeStop(final long id_muxer);
-	private static final native int nativeWriteSampleData(final long id_muxer, final int trackIndex, final ByteBuffer buf, final int offset, final int size, final long presentationTimeUs, final int flags);
+	private static final native int nativeWriteSampleData(final long id_muxer,
+		final int trackIndex, final ByteBuffer buf, final int offset, final int size,
+		final long presentationTimeUs, final int flags);
 
 	@Override
 	public boolean isStarted() {

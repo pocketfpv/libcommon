@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@ public class MediaEffectAutoFix extends MediaEffect {
 	 * GLコンテキスト内で生成すること
 	 *
 	 * @param effect_context
-	 * @param scale The scale of the adjustment. between 0 and 1. Zero means no adjustment, while 1 indicates the maximum amount of adjustment.
+	 * @param scale The scale of the adjustment. between 0 and 1.
+	 * Zero means no adjustment, while 1 indicates the maximum amount of adjustment.
 	 */
 	public MediaEffectAutoFix(final EffectContext effect_context, final float scale) {
 		super(effect_context, EffectFactory.EFFECT_AUTOFIX);
@@ -35,7 +36,8 @@ public class MediaEffectAutoFix extends MediaEffect {
 	}
 
 	/**
-	 * @param scale The scale of the adjustment. between 0 and 1. Zero means no adjustment, while 1 indicates the maximum amount of adjustment.
+	 * @param scale The scale of the adjustment. between 0 and 1.
+	 * Zero means no adjustment, while 1 indicates the maximum amount of adjustment.
 	 * @return
 	 */
 	public MediaEffectAutoFix setParameter(final float scale) {

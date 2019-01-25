@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package com.serenegiant.glutils;
 */
 
 import android.graphics.SurfaceTexture;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.util.Log;
 import android.view.Surface;
 
@@ -35,6 +35,11 @@ public class DumbRenderer implements IRenderer {
 		public void onStop(final EGLBase eglBase);
 		public void onSetSurface(final EGLBase eglBase, final Object surface);
 		public void onResize(final EGLBase eglBase, final int width, final int height);
+		/**
+		 * 描画実行
+		 * @param eglBase
+		 * @param args #requestRenderの引数
+		 */
 		public void onDraw(final EGLBase eglBase, final Object... args);
 		public void onMirror(final EGLBase eglBase, final int mirror);
 	}
@@ -45,8 +50,17 @@ public class DumbRenderer implements IRenderer {
 	@MirrorMode
 	private int mMirror = MIRROR_NORMAL;
 
-	public DumbRenderer(final EGLBase.IContext sharedContext, final int flags, final RendererDelegater delegater) {
-		mRendererTask = new RendererTask(sharedContext, flags, delegater);
+	public DumbRenderer(final EGLBase.IContext sharedContext,
+		final int flags, final RendererDelegater delegater) {
+
+		this(3, sharedContext, flags, delegater);
+	}
+
+	public DumbRenderer(final int maxClientVersion,
+		final EGLBase.IContext sharedContext,
+		final int flags, final RendererDelegater delegater) {
+
+		mRendererTask = new RendererTask(maxClientVersion, sharedContext, flags, delegater);
 		new Thread(mRendererTask, TAG).start();
 		if (!mRendererTask.waitReady()) {
 			// 初期化に失敗した時
@@ -133,11 +147,20 @@ public class DumbRenderer implements IRenderer {
 		/** 映像を左右反転させるかどうか */
 		private boolean mirror;
 
-		public RendererTask(final EGLBase.IContext sharedContext, final int flags, @NonNull final RendererDelegater delegater) {
-			super(sharedContext, flags);
-			mDelegater = delegater;
+		public RendererTask(final EGLBase.IContext sharedContext,
+			final int flags, @NonNull final RendererDelegater delegater) {
+
+			this(3, sharedContext, flags, delegater);
 		}
 
+		public RendererTask(final int maxClientVersion,
+			final EGLBase.IContext sharedContext,
+			final int flags, @NonNull final RendererDelegater delegater) {
+
+			super(maxClientVersion, sharedContext, flags);
+			mDelegater = delegater;
+		}
+		
 		@Override
 		protected void onStart() {
 			makeCurrent();
@@ -159,7 +182,9 @@ public class DumbRenderer implements IRenderer {
 		}
 
 		@Override
-		protected Object processRequest(final int request, final int arg1, final int arg2, final Object obj) throws TaskBreak {
+		protected Object processRequest(final int request,
+			final int arg1, final int arg2, final Object obj) throws TaskBreak {
+
 			switch (request) {
 			case REQUEST_SET_SURFACE:
 				handleSetSurface(obj);

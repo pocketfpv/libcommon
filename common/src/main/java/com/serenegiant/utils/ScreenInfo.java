@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.json.JSONObject;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.graphics.Point;
+import androidx.annotation.NonNull;
 import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.WindowManager;
@@ -32,7 +33,7 @@ public class ScreenInfo {
 
 	@SuppressWarnings("deprecation")
 	@SuppressLint("NewApi")
-	public static JSONObject get(final Activity activity) throws JSONException {
+	public static JSONObject get(@NonNull final Activity activity) throws JSONException {
 		final JSONObject result = new JSONObject();
 		try {
 			final WindowManager wm = activity.getWindowManager();

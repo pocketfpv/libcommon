@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ package com.serenegiant.glutils;
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
 */
+
+import androidx.annotation.Nullable;
 
 import com.serenegiant.utils.MessageTask;
 
@@ -39,7 +41,9 @@ public abstract class EglTask extends MessageTask {
 		init(flags, 3, sharedContext);
 	}
 
-	public EglTask(final int maxClientVersion, final EGLBase.IContext sharedContext, final int flags) {
+	public EglTask(final int maxClientVersion,
+		final EGLBase.IContext sharedContext, final int flags) {
+
 //		if (DEBUG) Log.i(TAG, "shared_context=" + shared_context);
 		init(flags, maxClientVersion, sharedContext);
 	}
@@ -50,8 +54,12 @@ public abstract class EglTask extends MessageTask {
 	 * @param sharedContext
 	 */
 	@Override
-	protected void onInit(final int flags, final int maxClientVersion, final Object sharedContext) {
-		if ((sharedContext == null) || (sharedContext instanceof EGLBase.IContext)) {
+	protected void onInit(final int flags,
+		final int maxClientVersion, final Object sharedContext) {
+
+		if ((sharedContext == null)
+			|| (sharedContext instanceof EGLBase.IContext)) {
+
 			final int stencilBits
 				= (flags & EGL_FLAG_STENCIL_1BIT) == EGL_FLAG_STENCIL_1BIT ? 1
 					: ((flags & EGL_FLAG_STENCIL_8BIT) == EGL_FLAG_STENCIL_8BIT ? 8 : 0);
@@ -99,6 +107,7 @@ public abstract class EglTask extends MessageTask {
 		return mEgl.getConfig();
 	}
 
+	@Nullable
 	protected EGLBase.IContext getContext() {
 		return mEgl != null ? mEgl.getContext() : null;
 	}

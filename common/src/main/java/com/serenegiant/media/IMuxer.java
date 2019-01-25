@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,14 +22,16 @@ import java.nio.ByteBuffer;
 
 import android.media.MediaCodec;
 import android.media.MediaFormat;
+import androidx.annotation.NonNull;
 
 /**
  * MediaMuxerとVideoMuxerを共通で扱えるようにするためのインターフェース
  */
 public interface IMuxer {
-	public int addTrack(final MediaFormat format);
+	public int addTrack(@NonNull final MediaFormat format);
 	public void writeSampleData(final int trackIndex,
-		final ByteBuffer byteBuf, final MediaCodec.BufferInfo bufferInfo);
+		@NonNull final ByteBuffer byteBuf,
+		@NonNull final MediaCodec.BufferInfo bufferInfo);
 	public void start();
 	public void stop();
 	public void release();

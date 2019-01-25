@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@ import java.nio.ByteBuffer;
 
 import android.media.MediaCodec;
 import android.media.MediaFormat;
-import android.support.annotation.IntDef;
-import android.support.annotation.Nullable;
-import android.support.v4.provider.DocumentFile;
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
+import androidx.documentfile.provider.DocumentFile;
 import android.view.Surface;
 
 public interface IRecorder {
@@ -146,5 +146,6 @@ public interface IRecorder {
 	public boolean start(final Encoder encoder);
 	public void stop(final Encoder encoder);
 	public int addTrack(final Encoder encoder, final MediaFormat format);
-	public void writeSampleData(final int trackIndex, final ByteBuffer byteBuf, final MediaCodec.BufferInfo bufferInfo);
+	public void writeSampleData(final int trackIndex,
+		final ByteBuffer byteBuf, final MediaCodec.BufferInfo bufferInfo);
 }

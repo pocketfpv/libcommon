@@ -3,7 +3,7 @@ package com.serenegiant.widget;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ package com.serenegiant.widget;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.annotation.LayoutRes;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v7.widget.RecyclerView;
+import androidx.annotation.LayoutRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -71,19 +71,20 @@ public abstract class CustomRecycleViewAdapter<T>
 	}
 
 	@Override
-	public void onAttachedToRecyclerView(final RecyclerView recyclerView) {
+	public void onAttachedToRecyclerView(@NonNull final RecyclerView recyclerView) {
 		super.onAttachedToRecyclerView(recyclerView);
 		mRecycleView = recyclerView;
 	}
 
 	@Override
-	public void onDetachedFromRecyclerView(final RecyclerView recyclerView) {
+	public void onDetachedFromRecyclerView(@NonNull final RecyclerView recyclerView) {
 		mRecycleView = null;
 		super.onDetachedFromRecyclerView(recyclerView);
 	}
 
+	@NonNull
 	@Override
-    public ViewHolder<T> onCreateViewHolder(final ViewGroup parent, final int viewType) {
+    public ViewHolder<T> onCreateViewHolder(@NonNull final ViewGroup parent, final int viewType) {
 		final LayoutInflater inflater = getLayoutInflater(parent.getContext());
         final View view = onCreateItemView(inflater, parent, viewType);
 		view.setOnClickListener(mOnClickListener);
@@ -221,6 +222,7 @@ public abstract class CustomRecycleViewAdapter<T>
             mView = view;
         }
 
+		@NonNull
         @Override
         public String toString() {
             return super.toString() + " '" + mItem + "'";

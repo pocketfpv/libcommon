@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,8 @@ public class MediaFileUtils {
 	private static final boolean DEBUG = BuildConfig.DEBUG;
 	private static final String TAG = "MediaFileUtils";
 
-	private static final SimpleDateFormat mDateTimeFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.US);
+	private static final SimpleDateFormat sDateTimeFormat
+		= new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.US);
 
 	/**
 	 * generate output file
@@ -56,6 +57,6 @@ public class MediaFileUtils {
 	 */
 	private static final String getDateTimeString() {
 		final GregorianCalendar now = new GregorianCalendar();
-		return mDateTimeFormat.format(now.getTime());
+		return sDateTimeFormat.format(now.getTime());
 	}
 }

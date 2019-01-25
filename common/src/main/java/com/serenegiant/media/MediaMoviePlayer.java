@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,10 @@ public class MediaMoviePlayer {
 	private final IFrameCallback mCallback;
 	private final boolean mAudioEnabled;
 
-	public MediaMoviePlayer(final Surface outputSurface, final IFrameCallback callback, final boolean audio_enable) throws NullPointerException {
+	public MediaMoviePlayer(final Surface outputSurface,
+		final IFrameCallback callback, final boolean audio_enable)
+			throws NullPointerException {
+
     	if (DEBUG) Log.v(TAG, "Constructor:");
     	if ((outputSurface == null) || (callback == null))
     		throw new NullPointerException("outputSurface and callback should not be null");

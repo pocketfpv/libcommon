@@ -3,7 +3,7 @@ package com.serenegiant.widget;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,10 @@ package com.serenegiant.widget;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.widget.Checkable;
-import android.widget.ImageButton;
 
-public class CheckableImageButton extends ImageButton implements Checkable {
+import androidx.appcompat.widget.AppCompatImageButton;
+
+public class CheckableImageButton extends AppCompatImageButton implements Checkable {
 	private static final boolean DEBUG = false; // 実同時はfalseにすること
 	private static final String TAG = CheckableImageButton.class.getSimpleName();
 

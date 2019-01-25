@@ -3,7 +3,7 @@ package com.serenegiant.widget;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,10 @@ import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.DrawableRes;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.View;
 
 import com.serenegiant.common.R;
@@ -69,8 +70,8 @@ public class DividerItemDecoration extends RecyclerView.ItemDecoration  {
 	}
 
 	@Override
-	public void onDraw(final Canvas canvas,
-		final RecyclerView parent, final RecyclerView.State state) {
+	public void onDraw(@NonNull final Canvas canvas,
+		@NonNull final RecyclerView parent, @NonNull final RecyclerView.State state) {
 
 		if (mDivider == null) return;
 		if (mOrientation == VERTICAL_LIST) {
@@ -117,8 +118,8 @@ public class DividerItemDecoration extends RecyclerView.ItemDecoration  {
 	}
 
 	@Override
-	public void getItemOffsets(final Rect outRect, final View view,
-		final RecyclerView parent, final RecyclerView.State state) {
+	public void getItemOffsets(@NonNull final Rect outRect, @NonNull final View view,
+		@NonNull final RecyclerView parent, @NonNull final RecyclerView.State state) {
 
 		final int position = parent.getChildAdapterPosition(view);
 		if (mDivider == null) {

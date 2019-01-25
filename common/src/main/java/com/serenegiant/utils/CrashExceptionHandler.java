@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,12 +36,13 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Build;
 import android.preference.PreferenceManager;
+import androidx.annotation.NonNull;
 
 public final class CrashExceptionHandler implements UncaughtExceptionHandler {
 	/* package */static final String LOG_NAME = "crashrepo.txt";
 	/* package */static final String MAIL_TO = "t_saki@serenegiant.com";
 
-	public static void registerCrashHandler(final Context app_context) {
+	public static void registerCrashHandler(@NonNull final Context app_context) {
 		Thread.setDefaultUncaughtExceptionHandler(new CrashExceptionHandler(app_context));
 	}
 
@@ -72,7 +73,7 @@ public final class CrashExceptionHandler implements UncaughtExceptionHandler {
 	private final WeakReference<PackageInfo> mWeakPackageInfo;
 	private final UncaughtExceptionHandler mHandler;
 
-	private CrashExceptionHandler(final Context context) {
+	private CrashExceptionHandler(@NonNull final Context context) {
 		mWeakContext = new WeakReference<Context>(context);
 		try {
 			mWeakPackageInfo = new WeakReference<PackageInfo>(

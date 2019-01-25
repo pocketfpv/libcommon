@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package com.serenegiant.utils;
  *  limitations under the License.
 */
 
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 
 import java.lang.ref.WeakReference;
 import java.util.concurrent.locks.Lock;
@@ -41,7 +41,7 @@ public class ReentrantReadWriteReference<T> {
 	 * constructor
 	 * @param obj
 	 */
-	public ReentrantReadWriteReference(final T obj) {
+	public ReentrantReadWriteReference(@Nullable final T obj) {
 		set(obj);
 	}
 	
@@ -49,7 +49,7 @@ public class ReentrantReadWriteReference<T> {
 	 * copy constructor
 	 * @param ref
 	 */
-	public ReentrantReadWriteReference(final WeakReference<T> ref) {
+	public ReentrantReadWriteReference(@Nullable final WeakReference<T> ref) {
 		set(ref);
 	}
 	
@@ -57,7 +57,7 @@ public class ReentrantReadWriteReference<T> {
 	 * copy constructor
 	 * @param ref
 	 */
-	public ReentrantReadWriteReference(final ReentrantReadWriteReference<T> ref) {
+	public ReentrantReadWriteReference(@Nullable final ReentrantReadWriteReference<T> ref) {
 		if (ref != null) {
 			set(ref.get());
 		}
@@ -138,7 +138,8 @@ public class ReentrantReadWriteReference<T> {
 	 * @param ref
 	 * @return previous referenced object, will be null
 	 */
-	public T set(final ReentrantReadWriteReference<T> ref) {
+	@Nullable
+	public T set(@Nullable final ReentrantReadWriteReference<T> ref) {
 		return set(ref != null ? ref.get() : null);
 	}
 	
@@ -149,6 +150,16 @@ public class ReentrantReadWriteReference<T> {
 	@Nullable
 	public T clear() {
 		return set((T)null);
+	}
+	
+	/**
+	 * swap reference with write lock
+	 * @param ref
+	 * @return previous referenced object, will be null
+	 */
+	@Nullable
+	public T swap(@Nullable final T ref) {
+		return set(ref);
 	}
 	
 	/**

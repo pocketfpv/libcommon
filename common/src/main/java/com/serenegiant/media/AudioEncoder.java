@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.util.Log;
 
 /**
  * AudioRecordから音声データを取得してMediaCodecエンコーダーでエンコードするためのクラス
@@ -37,9 +38,7 @@ import android.os.Build;
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
 public class AudioEncoder extends AbstractEncoder implements IAudioEncoder {
 //	private static final boolean DEBUG = false;	// FIXME 実働時にはfalseにすること
-//	private static final String TAG = "AudioEncoder";
-
-	public static final String AUDIO_MIME_TYPE = "audio/mp4a-latm";
+	private static final String TAG = AudioEncoder.class.getSimpleName();
 
     private AudioThread mAudioThread = null;
     protected final int mAudioSource;
@@ -49,7 +48,7 @@ public class AudioEncoder extends AbstractEncoder implements IAudioEncoder {
 	public AudioEncoder(final IRecorder recorder, final EncoderListener listener,
 						final int audio_source, final int audio_channels) {
 
-		super(AUDIO_MIME_TYPE, recorder, listener);
+		super(MediaCodecHelper.MIME_AUDIO_AAC, recorder, listener);
 //		if (DEBUG) Log.v(TAG, "コンストラクタ:");
 		mAudioSource = audio_source;
 		mSampleRate = AbstractAudioEncoder.DEFAULT_SAMPLE_RATE;
@@ -66,7 +65,7 @@ public class AudioEncoder extends AbstractEncoder implements IAudioEncoder {
         mRecorderStarted = mIsEOS = false;
 
 // 内蔵マイクから音声を取り込んでAACにエンコードするためのMediaCodecの準備
-        final MediaCodecInfo audioCodecInfo = selectAudioCodec(MIME_TYPE);
+        final MediaCodecInfo audioCodecInfo = MediaCodecHelper.selectAudioEncoder(MIME_TYPE);
         if (audioCodecInfo == null) {
 //			Log.e(TAG, "Unable to find an appropriate codec for " + MIME_TYPE);
             return true;
@@ -128,7 +127,7 @@ public class AudioEncoder extends AbstractEncoder implements IAudioEncoder {
 			// will enable the headphone
 			setDeviceConnectionState.Invoke(audioSystemClass, (Integer)DEVICE_OUT_WIRED_HEADPHONE, (Integer)DEVICE_STATE_AVAILABLE, new Lang.String(""));
 */
-    		final AudioRecord audioRecord = AudioSampler.createAudioRecord(
+    		final AudioRecord audioRecord = IAudioSampler.createAudioRecord(
     			mAudioSource, mSampleRate, mChannelCount, AudioFormat.ENCODING_PCM_16BIT, buffer_size);
             int frame_count = 0, err_count = 0;
             final ByteBuffer buf = ByteBuffer.allocateDirect(buffer_size).order(ByteOrder.nativeOrder());
@@ -139,32 +138,54 @@ public class AudioEncoder extends AbstractEncoder implements IAudioEncoder {
 		                int readBytes;
 		                audioRecord.startRecording();
 		                try {
+		                	final int sizeInBytes = AbstractAudioEncoder.SAMPLES_PER_FRAME * mChannelCount;
 		                	for ( ; ;) {
-		                		synchronized (mSync) {
-			                		if (!mIsCapturing || mRequestStop || mIsEOS) break;
-			                	}
+		                		if (!mIsCapturing || mRequestStop || mIsEOS) break;
 		                		buf.clear();
 		                		try {
-		                			readBytes = audioRecord.read(buf, AbstractAudioEncoder.SAMPLES_PER_FRAME * mChannelCount);
+		                			readBytes = audioRecord.read(buf, sizeInBytes);
 		                		} catch (final Exception e) {
 //		    		        		Log.w(TAG, "AudioRecord#read failed:", e);
 		                			break;
 		                		}
-				    			if (readBytes == AudioRecord.ERROR_BAD_VALUE) {
-//				    				Log.e(TAG, "Read error ERROR_BAD_VALUE");
+								if (readBytes > 0) {
+									err_count = 0;
+									frame_count++;
+									// 内蔵マイクからの音声入力をエンコーダーにセット
+									buf.position(readBytes);
+									buf.flip();
+									encode(buf, readBytes, getInputPTSUs());
+									frameAvailableSoon();
+								} else if (readBytes == AudioRecord.SUCCESS) {	// == 0
+									err_count = 0;
+									continue;
+								} else if (readBytes == AudioRecord.ERROR) {
+									if (err_count == 0) {
+										Log.e(TAG, "Read error ERROR");
+									}
+									err_count++;
+								} else if (readBytes == AudioRecord.ERROR_BAD_VALUE) {
+									if (err_count == 0) {
+										Log.e(TAG, "Read error ERROR_BAD_VALUE");
+									}
 				    				err_count++;
 				    			} else if (readBytes == AudioRecord.ERROR_INVALID_OPERATION) {
-//				    				Log.e(TAG, "Read error ERROR_INVALID_OPERATION");
+									if (err_count == 0) {
+										Log.e(TAG, "Read error ERROR_INVALID_OPERATION");
+									}
 				    				err_count++;
-		                		} else if (readBytes > 0) {
-		                			err_count = 0;
-		                			frame_count++;
-				    			    // 内蔵マイクからの音声入力をエンコーダーにセット
-		                			buf.position(readBytes);
-		                			buf.flip();
-				    				encode(buf, readBytes, getInputPTSUs());
-				    				frameAvailableSoon();
-				    			}
+								} else if (readBytes == AudioRecord.ERROR_DEAD_OBJECT) {
+									if (err_count == 0) {
+										Log.e(TAG, "Read error ERROR_DEAD_OBJECT");
+									}
+									err_count++;
+									// FIXME この時はAudioRecordを再生成しないといけない
+								} else if (readBytes < 0) {
+									if (err_count == 0) {
+										Log.e(TAG, "Read returned unknown err " + readBytes);
+									}
+									err_count++;
+								}
 				    			if (err_count > 10) break;
 		                	}
 		                	if (frame_count > 0)
@@ -199,34 +220,6 @@ public class AudioEncoder extends AbstractEncoder implements IAudioEncoder {
             }
 //			if (DEBUG) Log.v(TAG, "AudioThread:finished");
     	}
-    }
-
-    /**
-     * 指定したMIMEに一致する最初のコーデックを選択する
-     * @param mimeType
-     * @return
-     */
-	private static final MediaCodecInfo selectAudioCodec(final String mimeType) {
-//    	if (DEBUG) Log.v(TAG, "selectAudioCodec:");
-
-    	MediaCodecInfo result = null;
-    	// コーデックの一覧を取得
-        final int numCodecs = getCodecCount();
-LOOP:	for (int i = 0; i < numCodecs; i++) {
-        	final MediaCodecInfo codecInfo = getCodecInfoAt(i);
-            if (!codecInfo.isEncoder()) {	// エンコーダーでない(=デコーダー)はスキップする
-                continue;
-            }
-            final String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; j++) {
-//            	if (DEBUG) Log.i(TAG, "supportedType:" + codecInfo.getName() + ",MIME=" + types[j]);
-                if (types[j].equalsIgnoreCase(mimeType)) {
-               		result = codecInfo;
-           			break LOOP;
-                }
-            }
-        }
-   		return result;
     }
 
 	@Override

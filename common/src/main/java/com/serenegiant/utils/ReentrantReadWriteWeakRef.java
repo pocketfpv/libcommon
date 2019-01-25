@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package com.serenegiant.utils;
  *  limitations under the License.
 */
 
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 
 import java.lang.ref.WeakReference;
 import java.util.concurrent.locks.Lock;
@@ -41,7 +41,7 @@ public class ReentrantReadWriteWeakRef<T> {
 	 * constructor
 	 * @param obj
 	 */
-	public ReentrantReadWriteWeakRef(final T obj) {
+	public ReentrantReadWriteWeakRef(@Nullable final T obj) {
 		set(obj);
 	}
 	
@@ -49,7 +49,7 @@ public class ReentrantReadWriteWeakRef<T> {
 	 * copy constructor
 	 * @param ref
 	 */
-	public ReentrantReadWriteWeakRef(final WeakReference<T> ref) {
+	public ReentrantReadWriteWeakRef(@Nullable final WeakReference<T> ref) {
 		set(ref);
 	}
 	
@@ -57,7 +57,7 @@ public class ReentrantReadWriteWeakRef<T> {
 	 * copy constructor
 	 * @param ref
 	 */
-	public ReentrantReadWriteWeakRef(final ReentrantReadWriteWeakRef<T> ref) {
+	public ReentrantReadWriteWeakRef(@Nullable final ReentrantReadWriteWeakRef<T> ref) {
 		if (ref != null) {
 			set(ref.get());
 		}
@@ -146,6 +146,7 @@ public class ReentrantReadWriteWeakRef<T> {
 	 * @param ref
 	 * @return previous referenced object, will be null
 	 */
+	@Nullable
 	public T set(final ReentrantReadWriteWeakRef<T> ref) {
 		return set(ref != null ? ref.get() : null);
 	}
@@ -157,6 +158,16 @@ public class ReentrantReadWriteWeakRef<T> {
 	@Nullable
 	public T clear() {
 		return set((T)null);
+	}
+	
+	/**
+	 * swap reference with write lock
+	 * @param ref
+	 * @return previous referenced object, will be null
+	 */
+	@Nullable
+	public T swap(final ReentrantReadWriteWeakRef<T> ref) {
+		return set(ref);
 	}
 
 	/**

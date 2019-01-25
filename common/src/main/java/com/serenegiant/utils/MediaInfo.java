@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,8 +28,11 @@ import org.json.JSONObject;
 
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
+import android.os.Build;
+import androidx.annotation.RequiresApi;
 import android.text.TextUtils;
 
+@RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
 public final class MediaInfo {
 
 	public static JSONObject get() throws JSONException {
@@ -70,15 +73,15 @@ public final class MediaInfo {
 		        		Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
 		        	}
 		        	try {
-			            final int[] colorFormats = capabilities.colorFormats;
-			            final int m = colorFormats != null ? colorFormats.length : 0;
-			            if (m > 0) {
-				        	final JSONObject caps = new JSONObject();
-				            for (int k = 0; k < m; k++) {
-				            	caps.put(String.format("COLOR_FORMAT(%d)", k), getColorFormatName(colorFormats[k]));
-				            }
-			            	codec.put("COLOR_FORMATS", caps);
-			            }
+						final int[] colorFormats = capabilities.colorFormats;
+						final int m = colorFormats != null ? colorFormats.length : 0;
+						if (m > 0) {
+							final JSONObject caps = new JSONObject();
+							for (int k = 0; k < m; k++) {
+								caps.put(String.format(Locale.US, "COLOR_FORMAT(%d)", k), getColorFormatName(colorFormats[k]));
+							}
+							codec.put("COLOR_FORMATS", caps);
+						}
 		        	} catch (final Exception e) {
 		            	codec.put("COLOR_FORMATS", e.getMessage());
 		        	}
@@ -240,7 +243,7 @@ public final class MediaInfo {
     }
 
     public static String getProfileLevelString(final String mimeType, final MediaCodecInfo.CodecProfileLevel profileLevel) {
-    	String result = null;
+    	String result;
     	if (!TextUtils.isEmpty(mimeType)) {
 	    	if (mimeType.equalsIgnoreCase("video/avc")) {
 		    	switch (profileLevel.profile) {

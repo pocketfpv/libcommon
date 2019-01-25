@@ -3,7 +3,7 @@ package com.serenegiant.dialog;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,8 @@ import com.serenegiant.common.R;
 import com.serenegiant.widget.ColorPickerView;
 import com.serenegiant.widget.ColorPickerView.ColorPickerListener;
 
+@SuppressWarnings("deprecation")
+@Deprecated
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 public class ColorPickerDialog extends DialogFragment {
 	private static final boolean DEBUG = false;
@@ -125,21 +127,27 @@ public class ColorPickerDialog extends DialogFragment {
 			// 親がフラグメントの場合
 			mListener = (OnColorChangedListener) getTargetFragment();
 		} catch (final NullPointerException e1) {
+			// ignore
 		} catch (final ClassCastException e) {
+			// ignore
 		}
 		if (mListener == null)
 		try {
 			// 親がフラグメントの場合
 			mListener = (OnColorChangedListener) getParentFragment();
 		} catch (final NullPointerException e1) {
+			// ignore
 		} catch (final ClassCastException e) {
+			// ignore
 		}
 		if (mListener == null)
 		try {
 			// 親がActivityの場合
 			mListener = (OnColorChangedListener) activity;
 		} catch (final ClassCastException e) {
+			// ignore
 		} catch (final NullPointerException e1) {
+			// ignore
 		}
 		if (mListener == null) {
 			// FIXME 呼び出し元がコールバックメソッドを実装していない時

@@ -3,7 +3,7 @@ package com.serenegiant.bluetooth;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package com.serenegiant.bluetooth;
 */
 
 import android.content.Context;
-import android.support.annotation.LayoutRes;
-import android.support.annotation.NonNull;
+import androidx.annotation.LayoutRes;
+import androidx.annotation.NonNull;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -65,15 +65,15 @@ public class BluetoothDeviceInfoAdapter extends ArrayAdapter<BluetoothDeviceInfo
 
 	@NonNull
 	@Override
-	public View getView(final int position, final View convertView, final ViewGroup parent) {
+	public View getView(final int position, final View convertView, @NonNull final ViewGroup parent) {
 		View rootView = convertView;
 		if (rootView == null) {
 			final TextView label;
 			rootView = mInflater.inflate(mLayoutId, parent, false);
 			final ViewHolder holder = new ViewHolder();
-			holder.nameTv = (TextView) rootView.findViewById(R.id.name);
-			holder.addressTv = (TextView)rootView.findViewById(R.id.address);
-			holder.icon = (ImageView)rootView.findViewById(R.id.icon);
+			holder.nameTv = rootView.findViewById(R.id.name);
+			holder.addressTv = rootView.findViewById(R.id.address);
+			holder.icon = rootView.findViewById(R.id.icon);
 			rootView.setTag(holder);
 		}
 		final ViewHolder holder = (ViewHolder)rootView.getTag();
@@ -87,10 +87,10 @@ public class BluetoothDeviceInfoAdapter extends ArrayAdapter<BluetoothDeviceInfo
 				if (holder.addressTv != null) {
 					holder.addressTv.setText(item.address);
 				}
-				if (holder.icon != null) {
-					// FIXME 接続状態によるアイコンの変更は未実装
+//				if (holder.icon != null) {
+//					// FIXME 接続状態によるアイコンの変更は未実装
 //					holder.icon.setImageResource(item.isPaired() ? R.mipmap.ic_paired : R.mipmap.ic_not_paired);
-				}
+//				}
 			}
 		} catch (final Exception e) {
 			Log.w(TAG, e);

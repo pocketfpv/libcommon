@@ -3,7 +3,7 @@ package com.serenegiant.glutils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package com.serenegiant.glutils;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -27,6 +28,7 @@ import android.graphics.drawable.Drawable;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.opengl.GLUtils;
+import androidx.annotation.NonNull;
 import android.util.Log;
 
 import com.serenegiant.utils.AssetsHelper;
@@ -64,7 +66,8 @@ public final class GLHelper {
 	 * @return
 	 */
 	public static int initTex(final int texTarget, final int filter_param) {
-		return initTex(texTarget, GLES20.GL_TEXTURE0, filter_param, filter_param, GLES20.GL_CLAMP_TO_EDGE);
+		return initTex(texTarget, GLES20.GL_TEXTURE0,
+			filter_param, filter_param, GLES20.GL_CLAMP_TO_EDGE);
 	}
 
 	/**
@@ -76,7 +79,9 @@ public final class GLHelper {
 	 * @param wrap テクスチャのクランプ方法, GL_CLAMP_TO_EDGE
 	 * @return
 	 */
-	public static int initTex(final int texTarget, final int texUnit, final int min_filter, final int mag_filter, final int wrap) {
+	public static int initTex(final int texTarget, final int texUnit,
+		final int min_filter, final int mag_filter, final int wrap) {
+
 //		if (DEBUG) Log.v(TAG, "initTex:target=" + texTarget);
 		final int[] tex = new int[1];
 		GLES20.glActiveTexture(texUnit);
@@ -88,6 +93,131 @@ public final class GLHelper {
 		GLES20.glTexParameteri(texTarget, GLES20.GL_TEXTURE_MAG_FILTER, mag_filter);
 		return tex[0];
 	}
+	
+	/**
+	 * テクスチャ名配列を生成(前から順にGL_TEXTURE0, GL_TEXTURE1, ...)
+	 * @param n 生成するテキスチャ名の数, 最大で32個(GL_MAX_TEXTURE_IMAGE_UNITS以下)
+	 * @param texTarget
+	 * @param filter_param
+	 * @return
+	 */
+	public static int[] initTexes(final int n,
+		final int texTarget, final int filter_param) {
+		
+		return initTexes(new int[n], texTarget,
+			filter_param, filter_param, GLES20.GL_CLAMP_TO_EDGE);
+	}
+
+	/**
+	 * テクスチャ名配列を生成(前から順にGL_TEXTURE0, GL_TEXTURE1, ...)
+	 * @param texIds テクスチャ名配列, 最大で32個(GL_MAX_TEXTURE_IMAGE_UNITS以下)
+	 * @param texTarget
+	 * @param filter_param
+	 * @return
+	 */
+	public static int[] initTexes(@NonNull final int[] texIds,
+		final int texTarget, final int filter_param) {
+		
+		return initTexes(texIds, texTarget,
+			filter_param, filter_param, GLES20.GL_CLAMP_TO_EDGE);
+	}
+
+	/**
+	 * テクスチャ名配列を生成(前から順にGL_TEXTURE0, GL_TEXTURE1, ...)
+ 	 * @param n 生成するテキスチャ名の数, 最大32
+	 * @param texTarget
+	 * @param min_filter
+	 * @param mag_filter
+	 * @param wrap
+	 * @return
+	 */
+	public static int[] initTexes(final int n,
+		final int texTarget, final int min_filter, final int mag_filter, final int wrap) {
+		
+		return initTexes(new int[n], texTarget, min_filter, mag_filter, wrap);
+	}
+
+	/**
+	 * テクスチャ名配列を生成(前から順にGL_TEXTURE0, GL_TEXTURE1, ...)
+	 * @param texIds テクスチャ名配列, 最大で32個(GL_MAX_TEXTURE_IMAGE_UNITS以下)
+	 * @param texTarget
+	 * @param min_filter
+	 * @param mag_filter
+	 * @param wrap
+	 * @return
+	 */
+	public static int[] initTexes(@NonNull final int[] texIds,
+		final int texTarget, final int min_filter, final int mag_filter, final int wrap) {
+
+		int[] textureUnits = new int[1];
+		GLES20.glGetIntegerv(GLES20.GL_MAX_TEXTURE_IMAGE_UNITS, textureUnits, 0);
+		Log.v(TAG, "GL_MAX_TEXTURE_IMAGE_UNITS=" + textureUnits[0]);
+		final int n = texIds.length > textureUnits[0]
+			? textureUnits[0] : texIds.length;
+		for (int i = 0; i < n; i++) {
+			texIds[i] = GLHelper.initTex(texTarget, ShaderConst.TEX_NUMBERS[i],
+				min_filter, mag_filter, wrap);
+		}
+		return texIds;
+	}
+	
+	/**
+	 * テクスチャ名配列を生成(こっちは全部同じテクスチャユニット)
+	 * @param n 最大で32個(GL_MAX_TEXTURE_IMAGE_UNITS以下)
+	 * @param texTarget
+	 * @param texUnit
+	 * @param min_filter
+	 * @param mag_filter
+	 * @param wrap
+	 * @return
+	 */
+	public static int[] initTexes(final int n,
+		final int texTarget, final int texUnit,
+			final int min_filter, final int mag_filter, final int wrap) {
+
+		return initTexes(new int[n], texTarget, texUnit,
+			min_filter, mag_filter, wrap);
+	}
+	
+	/**
+	 * テクスチャ名配列を生成(こっちは全部同じテクスチャユニット)
+	 * @param texIds 最大で32個(GL_MAX_TEXTURE_IMAGE_UNITS以下)
+	 * @param texTarget
+	 * @param texUnit
+	 * @param filter_param
+	 * @return
+	 */
+	public static int[] initTexes(@NonNull final int[] texIds,
+		final int texTarget, final int texUnit, final int filter_param) {
+		
+		return initTexes(texIds, texTarget, texUnit,
+			filter_param, filter_param, GLES20.GL_CLAMP_TO_EDGE);
+	}
+	
+	/**
+	 * テクスチャ名配列を生成(こっちは全部同じテクスチャユニット)
+	 * @param texIds
+	 * @param texTarget
+	 * @param texUnit
+	 * @param min_filter
+	 * @param mag_filter
+	 * @param wrap
+	 * @return
+	 */
+	public static int[] initTexes(@NonNull final int[] texIds,
+		final int texTarget, final int texUnit,
+		final int min_filter, final int mag_filter, final int wrap) {
+
+		int[] textureUnits = new int[1];
+		GLES20.glGetIntegerv(GLES20.GL_MAX_TEXTURE_IMAGE_UNITS, textureUnits, 0);
+		final int n = texIds.length > textureUnits[0]
+			? textureUnits[0] : texIds.length;
+		for (int i = 0; i < n; i++) {
+			texIds[i] = GLHelper.initTex(texTarget, texUnit,
+				min_filter, mag_filter, wrap);
+		}
+		return texIds;
+	}
 
 	/**
 	 * delete specific texture
@@ -98,7 +228,21 @@ public final class GLHelper {
 		GLES20.glDeleteTextures(1, tex, 0);
 	}
 
+	/**
+	 * delete specific texture
+	 */
+	public static void deleteTex(@NonNull final int[] tex) {
+//		if (DEBUG) Log.v(TAG, "deleteTex:");
+		GLES20.glDeleteTextures(tex.length, tex, 0);
+	}
+
 	public static int loadTextureFromResource(final Context context, final int resId) {
+		return loadTextureFromResource(context, resId, null);
+	}
+	
+	@SuppressLint("NewApi")
+	@SuppressWarnings("deprecation")
+	public static int loadTextureFromResource(final Context context, final int resId, final Resources.Theme theme) {
 		// Create an empty, mutable bitmap
 		final Bitmap bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888);
 		// get a canvas to paint over the bitmap
@@ -107,7 +251,12 @@ public final class GLHelper {
 
 		// get a background image from resources
 		// note the image format must match the bitmap format
-		final Drawable background = context.getResources().getDrawable(resId);
+		final Drawable background;
+		if (BuildCheck.isAndroid5()) {
+			background = context.getResources().getDrawable(resId, theme);
+		} else {
+			background = context.getResources().getDrawable(resId);
+		}
 		background.setBounds(0, 0, 256, 256);
 		background.draw(canvas); // draw the background to our bitmap
 
@@ -119,12 +268,16 @@ public final class GLHelper {
 		GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[0]);
 
 		//Create Nearest Filtered Texture
-		GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
-		GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+		GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D,
+			GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+		GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D,
+			GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
 
 		//Different possible texture parameters, e.g. GLES20.GL_CLAMP_TO_EDGE
-		GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT);
-		GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_REPEAT);
+		GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D,
+			GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT);
+		GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D,
+			GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_REPEAT);
 
 		//Use the Android GLUtils to specify a two-dimensional texture image from our bitmap
 		GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
@@ -149,7 +302,8 @@ public final class GLHelper {
 		// draw the text centered
 		canvas.drawText(text, 16, 112, textPaint);
 
-		final int texture = initTex(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE0, GLES20.GL_NEAREST, GLES20.GL_LINEAR, GLES20.GL_REPEAT);
+		final int texture = initTex(GLES20.GL_TEXTURE_2D,
+			GLES20.GL_TEXTURE0, GLES20.GL_NEAREST, GLES20.GL_LINEAR, GLES20.GL_REPEAT);
 
 		// Alpha blending
 		// GLES20.glEnable(GLES20.GL_BLEND);
@@ -170,7 +324,9 @@ public final class GLHelper {
 	 * @param fss_asset source file name in Assets of fragment shader
 	 * @return
 	 */
-	public static int loadShader(final Context context, final String vss_asset, final String fss_asset) {
+	public static int loadShader(@NonNull final Context context,
+		final String vss_asset, final String fss_asset) {
+
 		int program = 0;
 		try {
 			final String vss = AssetsHelper.loadString(context.getAssets(), vss_asset);

@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,10 @@ public class MediaEffectRedEye extends MediaEffect {
 	 * GLコンテキスト内で生成すること
 	 *
 	 * @param effect_context
-	 * @param centers Multiple center points (x, y) of the red eye regions. An array of floats, where (f[2*i], f[2*i+1]) specifies the center of the i'th eye. Coordinate values are expected to be normalized between 0 and 1.
+	 * @param centers Multiple center points (x, y) of the red eye regions.
+	 * 			An array of floats, where (f[2*i], f[2*i+1])
+	 * 			specifies the center of the i'th eye.
+	 * 			Coordinate values are expected to be normalized between 0 and 1.
 	 */
 	public MediaEffectRedEye(final EffectContext effect_context, final float[] centers) {
 		super(effect_context, EffectFactory.EFFECT_REDEYE);
@@ -35,7 +38,10 @@ public class MediaEffectRedEye extends MediaEffect {
 	}
 
 	/**
-	 * @param centers Multiple center points (x, y) of the red eye regions. An array of floats, where (f[2*i], f[2*i+1]) specifies the center of the i'th eye. Coordinate values are expected to be normalized between 0 and 1.
+	 * @param centers Multiple center points (x, y) of the red eye regions.
+	 * 			An array of floats, where (f[2*i], f[2*i+1])
+	 * 			specifies the center of the i'th eye.
+	 * 			Coordinate values are expected to be normalized between 0 and 1.
 	 * @return
 	 */
 	public MediaEffectRedEye setParameter(final float[] centers) {

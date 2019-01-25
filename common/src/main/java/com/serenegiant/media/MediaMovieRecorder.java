@@ -3,7 +3,7 @@ package com.serenegiant.media;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -115,7 +115,9 @@ public class MediaMovieRecorder extends AbstractRecorder {
 	}
 
 	@Override
-	void writeSampleData(final int trackIndex, final ByteBuffer byteBuf, final MediaCodec.BufferInfo bufferInfo) {
+	void writeSampleData(final int trackIndex,
+		final ByteBuffer byteBuf, final MediaCodec.BufferInfo bufferInfo) {
+
 		if (mIsStarted)
 			mMuxer.writeSampleData(trackIndex, byteBuf, bufferInfo);
 	}
@@ -123,7 +125,8 @@ public class MediaMovieRecorder extends AbstractRecorder {
 	private final IMediaCodecCallback mMediaCodecCallback = new IMediaCodecCallback() {
 		@Override
 		public void onPrepared(IMediaCodec codec) {
-			final boolean isPrepared = mVideoEncoder.isPrepared() && (!hasAudioEncoder || mAudioEncoder.isPrepared());
+			final boolean isPrepared = mVideoEncoder.isPrepared()
+				&& (!hasAudioEncoder || mAudioEncoder.isPrepared());
 			if (DEBUG) Log.v(TAG, "onPrepared:isPrepared=" + isPrepared);
 			if (isPrepared && (mRecorderCallback != null)) {
 				try {
@@ -136,7 +139,8 @@ public class MediaMovieRecorder extends AbstractRecorder {
 
 		@Override
 		public void onStart(IMediaCodec codec) {
-			final boolean isStarted = mVideoEncoder.isRunning() && (!hasAudioEncoder || mAudioEncoder.isRunning());
+			final boolean isStarted = mVideoEncoder.isRunning()
+				&& (!hasAudioEncoder || mAudioEncoder.isRunning());
 			if (DEBUG) Log.v(TAG, "onStart:isStarted=" + isStarted);
 			if (isStarted && (mRecorderCallback != null)) {
 				try {

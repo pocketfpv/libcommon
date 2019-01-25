@@ -3,7 +3,7 @@ package com.serenegiant.mediaeffect;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package com.serenegiant.mediaeffect;
 */
 
 import android.opengl.GLES20;
+import androidx.annotation.NonNull;
 
 import com.serenegiant.glutils.GLHelper;
 
@@ -29,7 +30,9 @@ public class MediaEffectErosion extends MediaEffectGLESBase {
 	private static final boolean DEBUG = false;
 	private static final String TAG = "MediaEffectErosion";
 
-	private static class MediaEffectErosionDrawer extends MediaEffectDrawer {
+	private static class MediaEffectErosionDrawer
+		extends MediaEffectDrawer.MediaEffectSingleDrawer {
+
 		private final int muTexOffsetLoc;	// テクスチャオフセット
 		private final float[] mTexOffset = new float[82];
 		private float mTexWidth;
@@ -41,8 +44,10 @@ public class MediaEffectErosion extends MediaEffectGLESBase {
 		}
 
 		@Override
-		protected void preDraw(final int tex_id, final float[] tex_matrix, final int offset) {
-			super.preDraw(tex_id, tex_matrix, offset);
+		protected void preDraw(@NonNull final int[] tex_ids,
+			final float[] tex_matrix, final int offset) {
+
+			super.preDraw(tex_ids, tex_matrix, offset);
 			// テクセルオフセット
 			if (muTexOffsetLoc >= 0) {
 				GLES20.glUniform2fv(muTexOffsetLoc, 41, mTexOffset, 0);

@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@ import java.util.Locale;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Environment;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -50,21 +51,21 @@ public class FileUtils {
      * @param ext .mp4 .png または .jpeg
      * @return 書き込み出来なければnullを返す
      */
-    public static final File getCaptureFile(final Context context,
-    	final String type, final String ext, final int save_tree_id) {
+    public static final File getCaptureFile(@NonNull final Context context,
+    	final String type, final String ext, final int saveTreeId) {
 
-    	return getCaptureFile(context, type, null, ext, save_tree_id);
+    	return getCaptureFile(context, type, null, ext, saveTreeId);
     }
 
-	public static final File getCaptureFile(final Context context,
-		final String type, final String prefix, final String ext, final int save_tree_id) {
+	public static final File getCaptureFile(@NonNull final Context context,
+		final String type, final String prefix, final String ext, final int saveTreeId) {
 
 	// 保存先のファイル名を生成
 		File result = null;
 		final String file_name = (TextUtils.isEmpty(prefix) ? getDateTimeString() : prefix + getDateTimeString()) + ext;
-		if ((save_tree_id > 0) && SDUtils.hasStorageAccess(context, save_tree_id)) {
-//			result = SDUtils.createStorageFile(context, save_tree_id, "*/*", file_name);
-			result = SDUtils.createStorageDir(context, save_tree_id);
+		if ((saveTreeId > 0) && SAFUtils.hasStorageAccess(context, saveTreeId)) {
+//			result = SAFUtils.createStorageFile(context, saveTreeId, "*/*", file_name);
+			result = SAFUtils.createStorageDir(context, saveTreeId);
 			if ((result == null) || !result.canWrite()) {
 				Log.w(TAG, "なんでか書き込めん");
 				result = null;
@@ -91,13 +92,13 @@ public class FileUtils {
 	}
 
 	@SuppressLint("NewApi")
-	public static final File getCaptureDir(final Context context,
-		final String type, final int save_tree_id) {
+	public static final File getCaptureDir(@NonNull final Context context,
+		final String type, final int saveTreeId) {
 
-//		Log.i(TAG, "getCaptureDir:save_tree_id=" + save_tree_id + ", context=" + context);
+//		Log.i(TAG, "getCaptureDir:saveTreeId=" + saveTreeId + ", context=" + context);
 		File result = null;
-		if ((save_tree_id > 0) && SDUtils.hasStorageAccess(context, save_tree_id)) {
-			result = SDUtils.createStorageDir(context, save_tree_id);
+		if ((saveTreeId > 0) && SAFUtils.hasStorageAccess(context, saveTreeId)) {
+			result = SAFUtils.createStorageDir(context, saveTreeId);
 //			Log.i(TAG, "getCaptureDir:createStorageDir=" + result);
 		}
 		final File dir = result != null
@@ -164,7 +165,35 @@ public class FileUtils {
     public static float FREE_SIZE = 300 * 1024 * 1024;		// 空き領域が300MB以上ならOK
     public static float FREE_SIZE_MINUTE = 40 * 1024 * 1024;	// 1分当たりの動画容量(5Mbpsで38MBぐらいなので)
 	public static long CHECK_INTERVAL = 45 * 1000L;	// 空き容量,EOSのチェクする間隔[ミリ秒](=45秒)
-
+	
+	/**
+	 * ストレージの情報を取得
+	 * @param context
+	 * @param type
+	 * @param save_tree_id
+	 * @return アクセスできなければnull
+	 */
+	@Nullable
+	public static StorageInfo getStorageInfo(final Context context,
+		@NonNull final String type, final int save_tree_id) {
+	    
+		if (context != null) {
+			try {
+				// 外部保存領域が書き込み可能な場合
+				// 外部ストレージへのパーミッションがないとnullが返ってくる
+				final File dir = getCaptureDir(context, type, save_tree_id);
+//					Log.i(TAG, "checkFreeSpace:dir=" + dir);
+				if (dir != null) {
+					final float freeSpace = dir.canWrite() ? dir.getUsableSpace() : 0;
+					return new StorageInfo(dir.getTotalSpace(), (long)freeSpace);
+				}
+			} catch (final Exception e) {
+				Log.w("getStorageInfo:", e);
+			}
+		}
+	    return null;
+	}
+	
     /**
      * プライマリー外部ストレージの空き容量のチェック
      * プライマリー外部ストレージの空き容量がFREE_RATIO(5%)以上かつFREE_SIZE(20MB)以上ならtrueを返す

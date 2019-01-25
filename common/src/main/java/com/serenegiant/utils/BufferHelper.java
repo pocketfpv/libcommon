@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -61,7 +61,6 @@ public class BufferHelper {
 		for (int i = offset; i < size; i += BUF_LEN) {
     		sz = i + BUF_LEN < size ? BUF_LEN : size - i;
 			buffer.get(dump, 0, sz);
-			sb.setLength(0);
 			for (int j = 0; j < sz; j++) {
 				sb.append(String.format("%02x", dump[j]));
 			}
@@ -205,10 +204,24 @@ public class BufferHelper {
 	 * @param bytes
 	 * @return
 	 */
-	public String toHexString(final byte[] bytes) {
+	public static String toHexString(@NonNull final byte[] bytes) {
+		return toHexString(bytes, 0, bytes.length);
+	}
+
+	/**
+	 * byte配列を16進文字列に変換する
+	 * @param bytes
+	 * @param offset
+	 * @param len 出力する最大バイト数
+	 * @return
+	 */
+	public static String toHexString(final byte[] bytes,
+		final int offset, final int len) {
+
 		final int n = (bytes != null) ? bytes.length : 0;
+		final int m = n > offset + len ? offset + len : n;
 		final StringBuilder sb = new StringBuilder(n * 2 + 2);
-		for (int i = 0; i < n; i++) {
+		for (int i = offset; i < m; i++) {
 			final byte b = bytes[i];
 			sb.append(HEX[(0xf0 & b) >>> 4]);
 			sb.append(HEX[0x0f & b]);
@@ -221,7 +234,7 @@ public class BufferHelper {
 	 * @param buffer
 	 * @return
 	 */
-	public String toHexString(final ByteBuffer buffer) {
+	public static String toHexString(final ByteBuffer buffer) {
 		if (buffer == null) return null;
 		final ByteBuffer _buffer = buffer.duplicate();
 		final int n = _buffer.remaining();

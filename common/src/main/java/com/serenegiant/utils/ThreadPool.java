@@ -3,7 +3,7 @@ package com.serenegiant.utils;
  * libcommon
  * utility/helper classes for myself
  *
- * Copyright (c) 2014-2017 saki t_saki@serenegiant.com
+ * Copyright (c) 2014-2018 saki t_saki@serenegiant.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package com.serenegiant.utils;
  *  limitations under the License.
 */
 
-import android.os.Build;
+import androidx.annotation.NonNull;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -35,9 +35,7 @@ public class ThreadPool {
 			TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
 
 	static {
-		if (Build.VERSION.SDK_INT >= 9) {
-			EXECUTOR.allowCoreThreadTimeOut(true);	// this makes core threads can terminate
-		}
+		EXECUTOR.allowCoreThreadTimeOut(true);	// this makes core threads can terminate
 	}
 
 	public static void preStartAllCoreThreads() {
@@ -46,7 +44,11 @@ public class ThreadPool {
 		EXECUTOR.prestartAllCoreThreads();
 	}
 
-	public static void queueEvent(final Runnable command) {
+	public static void queueEvent(@NonNull final Runnable command) {
 		EXECUTOR.execute(command);
+	}
+	
+	public static boolean removeEvent(@NonNull final Runnable command) {
+		return EXECUTOR.remove(command);
 	}
 }
